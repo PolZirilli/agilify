@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Agilify</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+
+  <!-- Skeleton Login -->
+  <div id="skeleton-login" class="bg-white p-6 rounded shadow-md w-full max-w-sm space-y-4 animate-pulse">
+    <div class="h-8 bg-gray-300 rounded w-3/4 mx-auto"></div>
+    <div class="h-6 bg-gray-300 rounded"></div>
+    <div class="h-10 bg-gray-300 rounded"></div>
+    <div class="h-6 bg-gray-300 rounded"></div>
+    <div class="h-10 bg-gray-300 rounded"></div>
+    <div class="h-4 bg-gray-300 rounded w-1/2 mx-auto mt-4"></div>
+  </div>
+
+  <!-- Login form real (invisible until ready) -->
+  <div id="content-login" class="bg-white p-6 rounded shadow-md w-full max-w-sm space-y-4 invisible">
+    <h1 class="text-2xl font-bold mb-4 text-center">Agilify</h1>
+    <form id="formLogin" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium">Email</label>
+        <input id="email" type="email" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium">Contraseña</label>
+        <input id="password" type="password" required class="w-full border rounded px-3 py-2">
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Ingresar</button>
+    </form>
+
+    <div class="mt-4 text-center">
+      <button id="btnOpenRegister" type="button" class="text-blue-600 hover:underline">¿No tienes cuenta? Registrarse</button>
+    </div>
+  </div>
+
+  <!-- Modal Registro -->
+  <div id="modal-register" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+    <div class="bg-white p-6 rounded max-w-md w-full relative shadow-lg">
+      <button id="cerrarModalRegister" class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
+      <h2 class="text-xl font-bold mb-4 text-center">Registro de Usuario</h2>
+      <form id="formRegister" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium">Nombre</label>
+          <input id="registerNombre" type="text" required class="w-full border rounded px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Apellido</label>
+          <input id="registerApellido" type="text" required class="w-full border rounded px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Email</label>
+          <input id="registerEmail" type="email" required class="w-full border rounded px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Contraseña</label>
+          <input id="registerPassword" type="password" required class="w-full border rounded px-3 py-2">
+        </div>
+        <button type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Registrar</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="app/login.js"></script>
+</body>
+</html>

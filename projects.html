@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Agilify - Proyectos</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Free -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between p-4 bg-white shadow">
+    <h1 class="text-2xl font-bold">Agilify</h1>
+    <div class="flex gap-2">
+      <button id="btnNuevoProyecto"
+              class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <i class="fas fa-plus"></i>
+        Nuevo
+      </button>
+      <button id="btnLogout"
+              class="flex items-center px-4 py-2 text-black hover:text-gray-700">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Subtítulo de sección -->
+  <div class="flex items-center gap-2 mt-6 px-4">
+    <i class="fas fa-chart-bar text-black"></i>
+    <span class="text-xl font-bold">Mis Proyectos</span>
+  </div>
+
+  <!-- Skeleton carga proyectos -->
+  <div id="skeleton-projects" class="p-4 space-y-4">
+    <div class="h-12 bg-gray-300 rounded animate-pulse"></div>
+    <div class="h-12 bg-gray-300 rounded animate-pulse"></div>
+    <div class="h-12 bg-gray-300 rounded animate-pulse"></div>
+  </div>
+
+  <!-- Lista de proyectos (invisible hasta carga) -->
+  <main id="content-projects" class="flex-1 p-4 invisible">
+    <ul id="listaProyectos" class="w-full space-y-4">
+      <!-- aquí se insertan los proyectos -->
+    </ul>
+  </main>
+
+  <!-- Modal Crear/Editar Proyecto -->
+  <div id="modal-proyecto" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+    <div class="bg-white p-6 rounded max-w-md w-full relative shadow-lg">
+      <button id="cerrarModalProyecto"
+              class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
+      <form id="formProyecto" class="space-y-4">
+        <input type="hidden" id="proyectoId">
+        <div>
+          <label class="block font-semibold">Nombre del Proyecto</label>
+          <input id="proyectoNombre" type="text" required class="w-full border rounded px-2 py-1">
+        </div>
+        <div>
+          <label class="block font-semibold">Descripción (opcional)</label>
+          <textarea id="proyectoDescripcion" rows="3" class="w-full border rounded px-2 py-1"></textarea>
+        </div>
+        <button type="submit"
+                class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+          Guardar Proyecto
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Agregar Usuario al Proyecto -->
+  <div id="modal-invitar" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+    <div class="bg-white p-6 rounded max-w-md w-full relative shadow-lg">
+      <button id="cerrarModalInvitar"
+              class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
+      <form id="formInvitar" class="space-y-4">
+        <input type="hidden" id="invitarProjectId">
+        <div>
+          <label class="block font-semibold">Nombre</label>
+          <input id="invitarFirstName" type="text" required class="w-full border rounded px-2 py-1" placeholder="Juan">
+        </div>
+        <div>
+          <label class="block font-semibold">Apellido</label>
+          <input id="invitarLastName" type="text" required class="w-full border rounded px-2 py-1" placeholder="Pérez">
+        </div>
+        <div>
+          <label class="block font-semibold">Email del usuario</label>
+          <input id="invitarUserEmail" type="email" required class="w-full border rounded px-2 py-1" placeholder="usuario@ejemplo.com">
+        </div>
+        <div>
+          <label class="block font-semibold">Rol</label>
+          <select id="invitarRole" class="w-full border rounded px-2 py-1">
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <button type="submit"
+                class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+          <i class="fas fa-user-plus"></i> Agregar
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="app/projects.js"></script>
+</body>
+</html>

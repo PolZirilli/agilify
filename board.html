@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Agilify</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Free -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col min-h-screen">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between p-4 bg-white shadow">
+    <h1 class="text-2xl font-bold">Agilify</h1>
+    <div class="flex gap-2">
+      <button id="btnNuevaTarea"
+              class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+        <i class="fas fa-plus"></i>
+      </button>
+      <button id="btnBack"
+              class="flex items-center px-4 py-2 text-black hover:text-gray-700">
+        <i class="fas fa-list-check"></i>
+      </button>
+      <button id="btnLogout"
+              class="flex items-center px-4 py-2 text-black hover:text-gray-700">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Skeleton Board -->
+  <div id="skeleton-board" class="flex-1 p-4 space-x-4 flex animate-pulse">
+    <div class="flex-1 space-y-4">
+      <div class="h-6 bg-gray-300 rounded w-1/2"></div>
+      <div class="space-y-2">
+        <div class="h-12 bg-gray-300 rounded"></div>
+        <div class="h-12 bg-gray-300 rounded"></div>
+        <div class="h-12 bg-gray-300 rounded"></div>
+      </div>
+    </div>
+    <div class="flex-1 space-y-4">
+      <div class="h-6 bg-gray-300 rounded w-1/2"></div>
+      <div class="space-y-2">
+        <div class="h-12 bg-gray-300 rounded"></div>
+        <div class="h-12 bg-gray-300 rounded"></div>
+        <div class="h-12 bg-gray-300 rounded"></div>
+      </div>
+    </div>
+    <div class="flex-1 space-y-4">
+      <div class="h-6 bg-gray-300 rounded w-1/2"></div>
+      <div class="space-y-2">
+        <div class="h-12 bg-gray-300 rounded"></div>
+        <div class="h-12 bg-gray-300 rounded"></div>
+        <div class="h-12 bg-gray-300 rounded"></div>
+      </div>
+    </div>
+    <div class="flex-1 space-y-4">
+      <div class="h-6 bg-gray-300 rounded w-1/2"></div>
+      <div class="space-y-2">
+        <div class="h-12 bg-gray-300 rounded"></div>
+        <div class="h-12 bg-gray-300 rounded"></div>
+        <div class="h-12 bg-gray-300 rounded"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kanban (oculto hasta carga) -->
+  <div id="content-board" class="flex-1 p-4 flex flex-col md:flex-row gap-4 overflow-auto invisible">
+    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2" data-status="a-realizar">
+      <h2 class="text-lg font-bold mb-2 text-center">A Realizar</h2>
+      <div id="todo" class="kanban-list min-h-[200px]"></div>
+    </div>
+    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2" data-status="en-proceso">
+      <h2 class="text-lg font-bold mb-2 text-center">En Proceso</h2>
+      <div id="inprogress" class="kanban-list min-h-[200px]"></div>
+    </div>
+    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2" data-status="pausado">
+      <h2 class="text-lg font-bold mb-2 text-center">Pausado</h2>
+      <div id="paused" class="kanban-list min-h-[200px]"></div>
+    </div>
+    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2" data-status="realizado">
+      <h2 class="text-lg font-bold mb-2 text-center">Realizado</h2>
+      <div id="done" class="kanban-list min-h-[200px]"></div>
+    </div>
+  </div>
+
+  <!-- Modal Tarea (más ancho y alto) -->
+  <div id="modal-task" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+    <div class="bg-white p-6 rounded max-w-4xl w-full mx-4 h-[80vh] overflow-auto relative shadow-lg">
+      <button id="cerrarModal"
+              class="absolute right-4 top-4 text-2xl text-gray-500 hover:text-gray-800">&times;</button>
+      <form id="formTarea" class="space-y-6">
+
+        <input type="hidden" id="tareaId">
+
+        <div>
+          <label class="block font-semibold mb-1">Título</label>
+          <input id="titulo" type="text" required
+                 class="w-full border rounded px-3 py-2 text-lg">
+        </div>
+
+        <div>
+          <label class="block font-semibold mb-1">Descripción</label>
+          <textarea id="descripcion" rows="6"
+                    class="w-full border rounded px-3 py-2 text-base"></textarea>
+        </div>
+
+        <div>
+          <label class="block font-semibold mb-1">Links (coma separados)</label>
+          <input id="links" type="text" placeholder="https://..."
+                 class="w-full border rounded px-3 py-2">
+        </div>
+
+        <div class="grid grid-cols-3 gap-6">
+          <div>
+            <label class="block font-semibold mb-1">Prioridad</label>
+            <select id="prioridad" class="w-full border rounded px-3 py-2">
+              <option value="baja">Baja</option>
+              <option value="media">Media</option>
+              <option value="alta">Alta</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Fecha límite</label>
+            <input id="fecha" type="date"
+                   class="w-full border rounded px-3 py-2">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Estado</label>
+            <select id="estado" class="w-full border rounded px-3 py-2">
+              <option value="a-realizar">A Realizar</option>
+              <option value="en-proceso">En Proceso</option>
+              <option value="pausado">Pausado</option>
+              <option value="realizado">Realizado</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold mb-1">Asignar a</label>
+          <select id="asignadoA" class="w-full border rounded px-3 py-2">
+            <option value="">-- No asignado --</option>
+          </select>
+        </div>
+
+        <div class="flex justify-end gap-4 mt-6">
+          <button type="button" id="btnEliminar"
+                  class="flex items-center gap-2 bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700">
+            <i class="fas fa-trash"></i> Eliminar
+          </button>
+          <button type="submit"
+                  class="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700">
+            <i class="fas fa-save"></i> Guardar
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <script src="app/app.js"></script>
+</body>
+</html>
