@@ -1,4 +1,4 @@
-// app.js
+// projects.js
 
 // ======= Firebase config e inicialización =======
 const firebaseConfig = {
@@ -11,230 +11,210 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db = firebase.firestore();
+const db   = firebase.firestore();
 
-// ======= Obtener projectId de la URL =======
-const urlParams = new URLSearchParams(window.location.search);
-const projectId = urlParams.get('projectId');
-if (!projectId) {
-  console.error('No se proporcionó projectId en la URL');
-  window.location.href = 'projects.html';
-}
+// ======= DOM refs =======
+const lista        = document.getElementById('listaProyectos');
+const skeleton     = document.getElementById('skeleton-projects');
+const content      = document.getElementById('content-projects');
+const btnNuevo     = document.getElementById('btnNuevoProyecto');
+const btnLogout    = document.getElementById('btnLogout');
+const modal        = document.getElementById('modal-proyecto');
+const btnCerrar    = document.getElementById('cerrarModalProyecto');
+const form         = document.getElementById('formProyecto');
+const modalInvitar = document.getElementById('modal-invitar');
+const formInvitar  = document.getElementById('formInvitar');
+const btnCerrarInv = document.getElementById('cerrarModalInvitar');
 
-// ======= Control de autenticación =======
+// Mantener proyectos en un mapa para evitar duplicados
+let proyectosMap = {};
+
+// ======= Autenticación y carga inicial =======
 auth.onAuthStateChanged(user => {
   if (!user) {
     window.location.href = 'login.html';
   } else {
-    cargarMiembrosProyecto();
-    cargarTareasRealtime();
+    cargarProyectos();
   }
 });
 
-// ======= Referencias al DOM =======
-const btnNueva    = document.getElementById('btnNuevaTarea');
-const btnBack     = document.getElementById('btnBack');
-const btnLogout   = document.getElementById('btnLogout');
-const modal       = document.getElementById('modal-task');
-const btnCerrar   = document.getElementById('cerrarModal');
-const form        = document.getElementById('formTarea');
-const btnEliminar = document.getElementById('btnEliminar');
-
-const inpTitulo      = document.getElementById('titulo');
-const inpDescripcion = document.getElementById('descripcion');
-const inpLinks       = document.getElementById('links');
-const selPrioridad   = document.getElementById('prioridad');
-const inpFecha       = document.getElementById('fecha');
-const selAsignado    = document.getElementById('asignadoA');
-const selEstado      = document.getElementById('estado');
-
-// ======= Navegación y logout =======
-btnBack.addEventListener('click', () => window.location.href = 'projects.html');
-btnLogout.addEventListener('click', () => auth.signOut());
-
-// ======= Modal =======
-btnNueva.addEventListener('click', abrirModalNueva);
-btnCerrar.addEventListener('click', cerrarModal);
-window.addEventListener('click', e => { if (e.target === modal) cerrarModal(); });
-window.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
-
-// ======= SortableJS =======
-['todo','inprogress','paused','done'].forEach(id => {
-  new Sortable(document.getElementById(id), {
-    group: 'kanban',
-    animation: 150,
-    onEnd: evt => {
-      const docId    = evt.item.dataset.id;
-      const newStatus = idColumnaAEstado(evt.to.id);
-      db.collection('projects').doc(projectId)
-        .collection('tasks').doc(docId)
-        .update({ status: newStatus });
-    }
-  });
+// ======= Logout =======
+btnLogout.addEventListener('click', async () => {
+  await auth.signOut();
+  window.location.href = 'login.html';
 });
 
-// ======= Guardar / actualizar tarea =======
-form.addEventListener('submit', e => {
-  e.preventDefault();
-  const id = form.tareaId.value ||
-    db.collection('projects').doc(projectId).collection('tasks').doc().id;
+// ======= Nuevo proyecto =======
+btnNuevo.addEventListener('click', () => {
+  form.reset();
+  form.proyectoId.value = '';
+  modal.classList.remove('hidden');
+});
+btnCerrar.addEventListener('click', () => modal.classList.add('hidden'));
 
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const user = auth.currentUser;
+  const id = form.proyectoId.value || db.collection('projects').doc().id;
   const data = {
-    title:       inpTitulo.value,
-    description: inpDescripcion.value,
-    links:       inpLinks.value.split(',').map(u=>u.trim()).filter(u=>u),
-    priority:    selPrioridad.value,
-    dueDate:     inpFecha.value
-                  ? firebase.firestore.Timestamp.fromDate(new Date(inpFecha.value))
-                  : null,
-    status:      selEstado.value,
-    assignedTo:  selAsignado.value || null,
+    name:        form.proyectoNombre.value,
+    description: form.proyectoDescripcion.value || '',
+    owner:       user.uid,
     createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
   };
-
-  db.collection('projects').doc(projectId)
-    .collection('tasks').doc(id)
-    .set(data, { merge: true });
-
-  cerrarModal();
-});
-
-// ======= Eliminar tarea =======
-btnEliminar.addEventListener('click', () => {
-  const id = form.tareaId.value;
-  if (!id) return;
-  if (confirm('¿Eliminar tarea permanentemente?')) {
-    db.collection('projects').doc(projectId)
-      .collection('tasks').doc(id).delete();
-    cerrarModal();
-  }
-});
-
-// ======= Cargar tareas en tiempo real =======
-function cargarTareasRealtime() {
-  db.collection('projects').doc(projectId)
-    .collection('tasks')
-    .onSnapshot(snap => {
-      document.getElementById('skeleton-board').classList.add('hidden');
-      document.getElementById('content-board').classList.remove('invisible');
-      renderTareas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  // Guardar proyecto
+  await db.collection('projects').doc(id).set(data, { merge: true });
+  // Asegurar owner en members
+  await db.collection('projects').doc(id)
+    .collection('members').doc(user.uid)
+    .set({
+      role:        'owner',
+      invitedBy:   user.uid,
+      joinedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+      displayName: user.displayName || ''
     });
-}
-
-// ======= Renderizar tarjetas Kanban SIN links y mostrando asignado =======
-function renderTareas(tareas) {
-  ['todo','inprogress','paused','done'].forEach(id => {
-    document.getElementById(id).innerHTML = '';
-  });
-  tareas.forEach(t => {
-    const card = document.createElement('div');
-    card.className = 'bg-gray-200 rounded p-2 mb-2 shadow cursor-pointer';
-    card.dataset.id = t.id;
-
-    // Sinopsis de descripción (50 caracteres máximo)
-    const fullDesc = t.description || '';
-    const snippet = fullDesc.length > 50
-      ? fullDesc.slice(0, 50) + '...'
-      : fullDesc;
-
-    // placeholder para nombre asignado
-    let assignedName = '';
-    if (t.assignedTo) {
-      db.collection('projects').doc(projectId)
-        .collection('members').doc(t.assignedTo)
-        .get().then(mdoc => {
-          assignedName = mdoc.data()?.displayName || '';
-          card.querySelector('.assigned').textContent = assignedName;
-        });
-    }
-
-    card.innerHTML = `
-      <div class="flex justify-between items-center mb-1">
-        <div class="font-semibold truncate">${t.title}</div>
-        <div class="text-xs font-bold uppercase ${
-          t.priority==='alta'?'text-red-600':
-          t.priority==='media'?'text-yellow-600':'text-green-600'}">
-          ${t.priority}
-        </div>
-      </div>
-      <div class="text-xs mb-1">${snippet}</div>
-      <div class="text-xs text-gray-500 mb-1">
-        <span class="font-semibold">Asignado a:</span>
-        <span class="assigned"></span>
-      </div>
-      <div class="text-xs text-gray-500">
-        ${t.dueDate
-          ? new Date(t.dueDate.seconds*1000).toLocaleDateString()
-          : ''
-        }
-      </div>
-    `;
-    card.addEventListener('click', () => abrirModalEditarTarea(t));
-    document.getElementById(idColumnaAId(t.status)).appendChild(card);
-  });
-}
-
-// ======= Funciones modales =======
-function abrirModalNueva() {
-  form.reset();
-  form.tareaId.value = '';
-  selAsignado.innerHTML = '<option value="">-- No asignado --</option>';
-  cargarMiembrosProyecto();
-  btnEliminar.classList.add('hidden');
-  modal.classList.remove('hidden');
-}
-
-function abrirModalEditarTarea(tarea) {
-  form.tareaId.value     = tarea.id;
-  inpTitulo.value        = tarea.title;
-  inpDescripcion.value   = tarea.description || '';
-  selPrioridad.value     = tarea.priority;
-  inpFecha.value         = tarea.dueDate
-                             ? new Date(tarea.dueDate.seconds*1000)
-                                 .toISOString().substr(0,10)
-                             : '';
-  selEstado.value        = tarea.status;
-
-  cargarMiembrosProyecto().then(() => {
-    selAsignado.value = tarea.assignedTo || '';
-  });
-
-  btnEliminar.classList.remove('hidden');
-  modal.classList.remove('hidden');
-}
-
-function cerrarModal() {
   modal.classList.add('hidden');
-}
+});
 
-// ======= Cargar dropdown de miembros =======
-async function cargarMiembrosProyecto() {
-  selAsignado.innerHTML = '<option value="">-- No asignado --</option>';
-  const membersSnap = await db.collection('projects')
-    .doc(projectId)
-    .collection('members')
-    .get();
+// ======= Carga dual de proyectos =======
+function cargarProyectos() {
+  const uid = auth.currentUser.uid;
+  let ownerLoaded = false;
+  let memberLoaded = false;
 
-  for (let mdoc of membersSnap.docs) {
-    const m = mdoc.data();
-    const opt = document.createElement('option');
-    opt.value = mdoc.id;
-    opt.textContent = m.displayName;
-    selAsignado.appendChild(opt);
+  // 1) Proyectos que creaste
+  db.collection('projects')
+    .where('owner', '==', uid)
+    .onSnapshot(snap => {
+      snap.docs.forEach(doc => {
+        proyectosMap[doc.id] = { id: doc.id, ...doc.data() };
+      });
+      ownerLoaded = true;
+      renderCombinado();
+    });
+
+  // 2) Proyectos donde eres miembro
+  db.collectionGroup('members')
+    .where(firebase.firestore.FieldPath.documentId(), '==', uid)
+    .onSnapshot(async snap => {
+      for (let mdoc of snap.docs) {
+        const projectId = mdoc.ref.parent.parent.id;
+        if (!proyectosMap[projectId]) {
+          const pdoc = await db.collection('projects').doc(projectId).get();
+          if (pdoc.exists) {
+            proyectosMap[projectId] = { id: pdoc.id, ...pdoc.data() };
+          }
+        }
+      }
+      memberLoaded = true;
+      renderCombinado();
+    });
+
+  function renderCombinado() {
+    if (!ownerLoaded && !memberLoaded) return;
+
+    // Ocultar skeleton y mostrar contenido
+    skeleton.classList.add('hidden');
+    content.classList.remove('invisible');
+
+    // Vaciar lista y renderizar
+    lista.innerHTML = '';
+    Object.values(proyectosMap)
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      .forEach(p => _renderProyecto(p));
   }
 }
 
-// ======= Utilidades =======
-function idColumnaAId(status) {
-  if (status==='a-realizar') return 'todo';
-  if (status==='en-proceso')  return 'inprogress';
-  if (status==='pausado')      return 'paused';
-  return 'done';
+// ======= Render de un solo proyecto, garantizando owner en la lista =======
+async function _renderProyecto(p) {
+  const li = document.createElement('li');
+  li.className = 'bg-white p-4 rounded shadow mb-4';
+
+  li.innerHTML = `
+    <div class="flex justify-between items-center">
+      <div class="flex items-center gap-2 cursor-pointer hover:text-blue-600 open-project">
+        <i class="fas fa-chart-bar text-black"></i>
+        <span class="font-semibold">${p.name}</span>
+      </div>
+      <div class="flex gap-2">
+        <button class="open-project text-black hover:text-gray-700"><i class="fas fa-list-check"></i></button>
+        <button class="invite-member text-black hover:text-gray-700"><i class="fas fa-user-plus"></i></button>
+        <button class="delete-project text-black hover:text-gray-700"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+    <p class="mt-2 text-xs text-gray-600 flex items-center gap-1 members-line">
+      <i class="fas fa-users text-black"></i> Cargando...
+    </p>
+  `;
+
+  // Abrir tablero
+  li.querySelectorAll('.open-project').forEach(el =>
+    el.addEventListener('click', () => window.location.href = `board.html?projectId=${p.id}`)
+  );
+  // Invitar miembro
+  li.querySelector('.invite-member').addEventListener('click', () => {
+    document.getElementById('invitarProjectId').value = p.id;
+    modalInvitar.classList.remove('hidden');
+  });
+  // Borrar proyecto
+  li.querySelector('.delete-project').addEventListener('click', async () => {
+    if (!confirm('¿Eliminar proyecto y sus datos?')) return;
+    await db.collection('projects').doc(p.id).delete();
+    delete proyectosMap[p.id];
+    cargarProyectos();
+  });
+
+  lista.appendChild(li);
+
+  // 1) cargar todos los miembros de la subcolección
+  const msnap = await db.collection('projects').doc(p.id)
+    .collection('members').get();
+  const names = msnap.docs.map(d => d.data().displayName);
+
+  // 2) si el owner no está en members, añadirlo al inicio
+  if (!msnap.docs.some(d => d.id === p.owner)) {
+    const ownerDoc = await db.collection('users').doc(p.owner).get();
+    if (ownerDoc.exists) {
+      const od = ownerDoc.data();
+      names.unshift(od.displayName || od.email);
+    }
+  }
+
+  // 3) mostrar la línea de miembros
+  li.querySelector('.members-line').innerHTML =
+    `<i class="fas fa-users text-black"></i> ${names.join(', ')}`;
 }
-function idColumnaAEstado(id) {
-  if (id==='todo')       return 'a-realizar';
-  if (id==='inprogress') return 'en-proceso';
-  if (id==='paused')     return 'pausado';
-  return 'realizado';
-}
+
+// ======= Modal invitar usuario =======
+btnCerrarInv.addEventListener('click', () => modalInvitar.classList.add('hidden'));
+formInvitar.addEventListener('submit', async e => {
+  e.preventDefault();
+  const projectId = document.getElementById('invitarProjectId').value;
+  const firstName = document.getElementById('invitarFirstName').value.trim();
+  const lastName  = document.getElementById('invitarLastName').value.trim();
+  const email     = document.getElementById('invitarUserEmail').value.trim().toLowerCase();
+  const role      = document.getElementById('invitarRole').value;
+  const owner     = auth.currentUser.uid;
+
+  // Buscar UID vía users
+  const q = await db.collection('users').where('email','==',email).limit(1).get();
+  if (q.empty) {
+    alert("❌ El email no existe en el sistema.");
+    return;
+  }
+  const uid = q.docs[0].id;
+
+  // Guardar en members
+  await db.collection('projects').doc(projectId)
+    .collection('members').doc(uid)
+    .set({
+      role,
+      invitedBy: owner,
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      displayName: `${firstName} ${lastName}`
+    });
+
+  modalInvitar.classList.add('hidden');
+  cargarProyectos();
+});
