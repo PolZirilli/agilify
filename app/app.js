@@ -2,7 +2,7 @@
 
 // ======= Firebase config e inicialización =======
 const firebaseConfig = {
-  apiKey: "AIzaSyDTuzGWaKLFzjHPfpVSQDzkSZeIA-Nv-4s",
+  apiKey: "...",
   authDomain: "agilify-c9abf.firebaseapp.com",
   projectId: "agilify-c9abf",
   storageBucket: "agilify-c9abf.firebasestorage.app",
@@ -26,16 +26,10 @@ const modalInvitar = document.getElementById('modal-invitar');
 const formInvitar  = document.getElementById('formInvitar');
 const btnCerrarInv = document.getElementById('cerrarModalInvitar');
 
-// Mantener proyectos en un mapa para evitar duplicados
-let proyectosMap = {};
-
 // ======= Autenticación y carga inicial =======
 auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.href = 'login.html';
-  } else {
-    cargarProyectos();
-  }
+  if (!user) return window.location.href = 'login.html';
+  cargarProyectos();
 });
 
 // ======= Logout =======
@@ -44,7 +38,7 @@ btnLogout.addEventListener('click', async () => {
   window.location.href = 'login.html';
 });
 
-// ======= Nuevo proyecto =======
+// ======= Crear proyecto (owner + members array) =======
 btnNuevo.addEventListener('click', () => {
   form.reset();
   form.proyectoId.value = '';
@@ -55,17 +49,18 @@ btnCerrar.addEventListener('click', () => modal.classList.add('hidden'));
 form.addEventListener('submit', async e => {
   e.preventDefault();
   const user = auth.currentUser;
-  const id = form.proyectoId.value || db.collection('projects').doc().id;
+  const id   = form.proyectoId.value || db.collection('projects').doc().id;
   const data = {
     name:        form.proyectoNombre.value,
     description: form.proyectoDescripcion.value || '',
     owner:       user.uid,
+    members:     [ user.uid ],                       // <-- inicializamos aquí
     createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
   };
-  // Guardar proyecto
+  // Guardar proyecto con members array
   await db.collection('projects').doc(id).set(data, { merge: true });
-  // Asegurar owner en members
+  // También lo añadimos en la subcolección por consistencia
   await db.collection('projects').doc(id)
     .collection('members').doc(user.uid)
     .set({
@@ -77,118 +72,74 @@ form.addEventListener('submit', async e => {
   modal.classList.add('hidden');
 });
 
-// ======= Carga dual de proyectos =======
+// ======= Listar proyectos: members array-contains =======
 function cargarProyectos() {
   const uid = auth.currentUser.uid;
-  let ownerLoaded = false;
-  let memberLoaded = false;
-
-  // 1) Proyectos que creaste
   db.collection('projects')
-    .where('owner', '==', uid)
+    .where('members','array-contains', uid)
     .onSnapshot(snap => {
-      snap.docs.forEach(doc => {
-        proyectosMap[doc.id] = { id: doc.id, ...doc.data() };
-      });
-      ownerLoaded = true;
-      renderCombinado();
+      // ocultar skeleton / mostrar contenido
+      skeleton.classList.add('hidden');
+      content.classList.remove('invisible');
+
+      lista.innerHTML = '';
+      snap.docs
+        .sort((a,b)=> (b.data().createdAt?.seconds||0) - (a.data().createdAt?.seconds||0))
+        .forEach(doc => renderProyecto(doc.id, doc.data()));
     });
-
-  // 2) Proyectos donde eres miembro
-  db.collectionGroup('members')
-    .where(firebase.firestore.FieldPath.documentId(), '==', uid)
-    .onSnapshot(async snap => {
-      for (let mdoc of snap.docs) {
-        const projectId = mdoc.ref.parent.parent.id;
-        if (!proyectosMap[projectId]) {
-          const pdoc = await db.collection('projects').doc(projectId).get();
-          if (pdoc.exists) {
-            proyectosMap[projectId] = { id: pdoc.id, ...pdoc.data() };
-          }
-        }
-      }
-      memberLoaded = true;
-      renderCombinado();
-    });
-
-  function renderCombinado() {
-    if (!ownerLoaded && !memberLoaded) return;
-
-    // Ocultar skeleton y mostrar contenido
-    skeleton.classList.add('hidden');
-    content.classList.remove('invisible');
-
-    // Vaciar lista y renderizar
-    lista.innerHTML = '';
-    Object.values(proyectosMap)
-      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-      .forEach(p => _renderProyecto(p));
-  }
 }
 
-// ======= Render de un solo proyecto, garantizando owner en la lista =======
-async function _renderProyecto(p) {
+// ======= Render de proyecto =======
+async function renderProyecto(projectId, p) {
   const li = document.createElement('li');
   li.className = 'bg-white p-4 rounded shadow mb-4';
-
   li.innerHTML = `
     <div class="flex justify-between items-center">
       <div class="flex items-center gap-2 cursor-pointer hover:text-blue-600 open-project">
-        <i class="fas fa-chart-bar text-black"></i>
-        <span class="font-semibold">${p.name}</span>
+        <i class="fas fa-chart-bar"></i><span class="font-semibold">${p.name}</span>
       </div>
       <div class="flex gap-2">
-        <button class="open-project text-black hover:text-gray-700"><i class="fas fa-list-check"></i></button>
-        <button class="invite-member text-black hover:text-gray-700"><i class="fas fa-user-plus"></i></button>
-        <button class="delete-project text-black hover:text-gray-700"><i class="fas fa-trash"></i></button>
+        <button class="open-project"><i class="fas fa-list-check"></i></button>
+        <button class="invite-member"><i class="fas fa-user-plus"></i></button>
+        <button class="delete-project"><i class="fas fa-trash"></i></button>
       </div>
     </div>
     <p class="mt-2 text-xs text-gray-600 flex items-center gap-1 members-line">
-      <i class="fas fa-users text-black"></i> Cargando...
+      <i class="fas fa-users"></i> Cargando...
     </p>
   `;
 
-  // Abrir tablero
-  li.querySelectorAll('.open-project').forEach(el =>
-    el.addEventListener('click', () => window.location.href = `board.html?projectId=${p.id}`)
+  // handlers...
+  li.querySelectorAll('.open-project').forEach(el=>
+    el.addEventListener('click', ()=> location.href = `board.html?projectId=${projectId}`)
   );
-  // Invitar miembro
-  li.querySelector('.invite-member').addEventListener('click', () => {
-    document.getElementById('invitarProjectId').value = p.id;
+  li.querySelector('.invite-member').addEventListener('click', ()=>{
+    document.getElementById('invitarProjectId').value = projectId;
     modalInvitar.classList.remove('hidden');
   });
-  // Borrar proyecto
-  li.querySelector('.delete-project').addEventListener('click', async () => {
-    if (!confirm('¿Eliminar proyecto y sus datos?')) return;
-    await db.collection('projects').doc(p.id).delete();
-    delete proyectosMap[p.id];
-    cargarProyectos();
+  li.querySelector('.delete-project').addEventListener('click', async ()=>{
+    if(!confirm('¿Eliminar proyecto?')) return;
+    await db.collection('projects').doc(projectId).delete();
   });
 
   lista.appendChild(li);
 
-  // 1) cargar todos los miembros de la subcolección
-  const msnap = await db.collection('projects').doc(p.id)
-    .collection('members').get();
-  const names = msnap.docs.map(d => d.data().displayName);
-
-  // 2) si el owner no está en members, añadirlo al inicio
-  if (!msnap.docs.some(d => d.id === p.owner)) {
-    const ownerDoc = await db.collection('users').doc(p.owner).get();
-    if (ownerDoc.exists) {
-      const od = ownerDoc.data();
-      names.unshift(od.displayName || od.email);
-    }
-  }
-
-  // 3) mostrar la línea de miembros
-  li.querySelector('.members-line').innerHTML =
-    `<i class="fas fa-users text-black"></i> ${names.join(', ')}`;
+  // cargar miembros desde array
+  const names = await Promise.all(
+    p.members.map(async uid => {
+      const u = await db.collection('users').doc(uid).get();
+      return u.exists
+        ? (u.data().displayName||u.data().email)
+        : uid;
+    })
+  );
+  li.querySelector('.members-line')
+    .innerHTML = `<i class="fas fa-users"></i> ${names.join(', ')}`;
 }
 
-// ======= Modal invitar usuario =======
-btnCerrarInv.addEventListener('click', () => modalInvitar.classList.add('hidden'));
-formInvitar.addEventListener('submit', async e => {
+// ======= Invitar miembro (arrayUnion + subcolección) =======
+btnCerrarInv.addEventListener('click', ()=> modalInvitar.classList.add('hidden'));
+formInvitar.addEventListener('submit', async e=>{
   e.preventDefault();
   const projectId = document.getElementById('invitarProjectId').value;
   const firstName = document.getElementById('invitarFirstName').value.trim();
@@ -197,24 +148,23 @@ formInvitar.addEventListener('submit', async e => {
   const role      = document.getElementById('invitarRole').value;
   const owner     = auth.currentUser.uid;
 
-  // Buscar UID vía users
+  // resolver UID
   const q = await db.collection('users').where('email','==',email).limit(1).get();
-  if (q.empty) {
-    alert("❌ El email no existe en el sistema.");
-    return;
-  }
+  if(q.empty){ alert("Email no existe."); return; }
   const uid = q.docs[0].id;
 
-  // Guardar en members
+  // agregar al array members
+  await db.collection('projects').doc(projectId)
+    .update({ members: firebase.firestore.FieldValue.arrayUnion(uid) });
+
+  // y a subcolección
   await db.collection('projects').doc(projectId)
     .collection('members').doc(uid)
     .set({
-      role,
-      invitedBy: owner,
+      role, invitedBy: owner,
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
       displayName: `${firstName} ${lastName}`
     });
 
   modalInvitar.classList.add('hidden');
-  cargarProyectos();
 });
