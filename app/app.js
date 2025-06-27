@@ -1,6 +1,3 @@
-// app.js
-
-// ======= Firebase config e inicialización =======
 const firebaseConfig = {
   apiKey: "AIzaSyDTuzGWaKLFzjHPfpVSQDzkSZeIA-Nv-4s",
   authDomain: "agilify-c9abf.firebaseapp.com",
@@ -9,24 +6,24 @@ const firebaseConfig = {
   messagingSenderId: "115735342206",
   appId: "1:115735342206:web:1ff5368de61190dac53c2f"
 };
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-// ======= Obtener projectId de la URL =======
 const urlParams = new URLSearchParams(window.location.search);
 const projectId = urlParams.get('projectId');
 if (!projectId) {
   window.location.href = 'projects.html';
 }
 
-// ======= Validación de acceso antes de todo =======
 auth.onAuthStateChanged(async user => {
   if (!user) {
     window.location.href = 'login.html';
     return;
   }
-  // Validar acceso solo por el array members
+  // Validar acceso SOLO por el array members
   const projectDoc = await db.collection('projects').doc(projectId).get();
   if (!projectDoc.exists) {
     alert("El proyecto no existe.");
@@ -39,86 +36,79 @@ auth.onAuthStateChanged(async user => {
     window.location.href = 'projects.html';
     return;
   }
-  // Si está autorizado, arrancar la app normalmente
-  cargarMiembrosProyecto();
-  cargarTareasRealtime();
+  inicializarBoard();
 });
 
-// ======= Referencias al DOM =======
-const btnNueva    = document.getElementById('btnNuevaTarea');
-const btnBack     = document.getElementById('btnBack');
-const btnLogout   = document.getElementById('btnLogout');
-const modal       = document.getElementById('modal-task');
-const btnCerrar   = document.getElementById('cerrarModal');
-const form        = document.getElementById('formTarea');
-const btnEliminar = document.getElementById('btnEliminar');
+function inicializarBoard() {
+  const btnNueva    = document.getElementById('btnNuevaTarea');
+  const btnBack     = document.getElementById('btnBack');
+  const btnLogout   = document.getElementById('btnLogout');
+  const modal       = document.getElementById('modal-task');
+  const btnCerrar   = document.getElementById('cerrarModal');
+  const form        = document.getElementById('formTarea');
+  const btnEliminar = document.getElementById('btnEliminar');
 
-// ======= Navegación =======
-btnBack.addEventListener('click', () => {
-  window.location.href = 'projects.html';
-});
-btnLogout.addEventListener('click', () => auth.signOut());
+  btnBack.addEventListener('click', () => window.location.href = 'projects.html');
+  btnLogout.addEventListener('click', () => auth.signOut());
+  btnNueva.addEventListener('click', abrirModalNueva);
+  btnCerrar.addEventListener('click', cerrarModal);
+  window.addEventListener('click', e => { if (e.target === modal) cerrarModal(); });
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
 
-// ======= Abrir/Cerrar modal nueva tarea =======
-btnNueva.addEventListener('click', abrirModalNueva);
-btnCerrar.addEventListener('click', cerrarModal);
-window.addEventListener('click', e => { if (e.target === modal) cerrarModal(); });
-window.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
+  ['todo','inprogress','paused','done'].forEach(id => {
+    new Sortable(document.getElementById(id), {
+      group: 'kanban',
+      animation: 150,
+      onEnd: evt => {
+        const docId    = evt.item.dataset.id;
+        const newStatus = idColumnaAEstado(evt.to.id);
+        db.collection('projects').doc(projectId)
+          .collection('tasks').doc(docId)
+          .update({ status: newStatus });
+      }
+    });
+  });
 
-// ======= Drag & Drop con SortableJS =======
-['todo','inprogress','paused','done'].forEach(id => {
-  new Sortable(document.getElementById(id), {
-    group: 'kanban',
-    animation: 150,
-    onEnd: evt => {
-      const docId    = evt.item.dataset.id;
-      const newStatus = idColumnaAEstado(evt.to.id);
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const id = form.tareaId.value ||
+      db.collection('projects').doc(projectId).collection('tasks').doc().id;
+
+    const data = {
+      title:       form.titulo.value,
+      description: form.descripcion.value,
+      links:       form.links.value.split(',').map(u=>u.trim()).filter(u=>u),
+      priority:    form.prioridad.value,
+      dueDate:     form.fecha.value
+                    ? firebase.firestore.Timestamp.fromDate(new Date(form.fecha.value))
+                    : null,
+      status:      form.estado.value,
+      assignedTo:  form.asignadoA.value || null,
+      createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    db.collection('projects').doc(projectId)
+      .collection('tasks').doc(id)
+      .set(data, { merge: true });
+
+    cerrarModal();
+  });
+
+  btnEliminar.addEventListener('click', () => {
+    const id = document.getElementById('tareaId').value;
+    if (!id) return;
+    if (confirm('¿Eliminar tarea permanentemente?')) {
       db.collection('projects').doc(projectId)
-        .collection('tasks').doc(docId)
-        .update({ status: newStatus });
+        .collection('tasks').doc(id).delete();
+      cerrarModal();
     }
   });
-});
 
-// ======= Guardar / actualizar tarea =======
-form.addEventListener('submit', e => {
-  e.preventDefault();
-  const id = form.tareaId.value ||
-    db.collection('projects').doc(projectId).collection('tasks').doc().id;
+  cargarMiembrosProyecto();
+  cargarTareasRealtime();
+}
 
-  const data = {
-    title:       form.titulo.value,
-    description: form.descripcion.value,
-    links:       form.links.value.split(',').map(u=>u.trim()).filter(u=>u),
-    priority:    form.prioridad.value,
-    dueDate:     form.fecha.value
-                  ? firebase.firestore.Timestamp.fromDate(new Date(form.fecha.value))
-                  : null,
-    status:      form.estado.value,
-    assignedTo:  form.asignadoA.value || null,
-    createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
-  };
-
-  db.collection('projects').doc(projectId)
-    .collection('tasks').doc(id)
-    .set(data, { merge: true });
-
-  cerrarModal();
-});
-
-// ======= Eliminar tarea =======
-btnEliminar.addEventListener('click', () => {
-  const id = document.getElementById('tareaId').value;
-  if (!id) return;
-  if (confirm('¿Eliminar tarea permanentemente?')) {
-    db.collection('projects').doc(projectId)
-      .collection('tasks').doc(id).delete();
-    cerrarModal();
-  }
-});
-
-// ======= Cargar tareas en tiempo real =======
 function cargarTareasRealtime() {
   db.collection('projects').doc(projectId)
     .collection('tasks')
@@ -127,7 +117,6 @@ function cargarTareasRealtime() {
     });
 }
 
-// ======= Renderizar tarjetas Kanban =======
 function renderTareas(tareas) {
   ['todo','inprogress','paused','done'].forEach(id => {
     document.getElementById(id).innerHTML = '';
@@ -136,7 +125,6 @@ function renderTareas(tareas) {
     const card = document.createElement('div');
     card.className = 'bg-gray-200 rounded p-2 mb-2 shadow cursor-pointer';
     card.dataset.id = t.id;
-    // Mostrar solo los primeros 50 caracteres de la descripción
     const desc = t.description ? t.description.substring(0, 50) + (t.description.length > 50 ? "..." : "") : "";
     card.innerHTML = `
       <div class="flex justify-between items-center mb-1">
@@ -162,15 +150,16 @@ function renderTareas(tareas) {
   });
 }
 
-// ======= Funciones para abrir/cerrar modal =======
 function abrirModalNueva() {
+  const form = document.getElementById('formTarea');
   form.reset();
   form.tareaId.value = '';
-  btnEliminar.classList.add('hidden');
-  modal.classList.remove('hidden');
+  document.getElementById('btnEliminar').classList.add('hidden');
+  document.getElementById('modal-task').classList.remove('hidden');
 }
 
 function abrirModalEditarTarea(tarea) {
+  const form = document.getElementById('formTarea');
   form.tareaId.value     = tarea.id;
   form.titulo.value      = tarea.title;
   form.descripcion.value = tarea.description || '';
@@ -182,15 +171,14 @@ function abrirModalEditarTarea(tarea) {
                              : '';
   form.asignadoA.value   = tarea.assignedTo || '';
   form.estado.value      = tarea.status;
-  btnEliminar.classList.remove('hidden');
-  modal.classList.remove('hidden');
+  document.getElementById('btnEliminar').classList.remove('hidden');
+  document.getElementById('modal-task').classList.remove('hidden');
 }
 
 function cerrarModal() {
-  modal.classList.add('hidden');
+  document.getElementById('modal-task').classList.add('hidden');
 }
 
-// ======= Mapeo estado <-> columna =======
 function idColumnaAId(status) {
   if (status==='a-realizar') return 'todo';
   if (status==='en-proceso')  return 'inprogress';
@@ -204,7 +192,6 @@ function idColumnaAEstado(id) {
   return 'realizado';
 }
 
-// ======= Cargar miembros en el dropdown desde subcolección =======
 async function cargarMiembrosProyecto() {
   const select = document.getElementById('asignadoA');
   select.innerHTML = '<option value="">-- No asignado --</option>';
