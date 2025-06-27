@@ -1,6 +1,4 @@
-// projects.js
-
-// ======= Firebase config e inicialización =======
+// Firebase config e inicialización
 const firebaseConfig = {
   apiKey: "AIzaSyDTuzGWaKLFzjHPfpVSQDzkSZeIA-Nv-4s",
   authDomain: "agilify-c9abf.firebaseapp.com",
@@ -9,39 +7,36 @@ const firebaseConfig = {
   messagingSenderId: "115735342206",
   appId: "1:115735342206:web:1ff5368de61190dac53c2f"
 };
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 const auth = firebase.auth();
-const db   = firebase.firestore();
+const db = firebase.firestore();
 
-// ======= DOM refs =======
-const lista        = document.getElementById('listaProyectos');
-const skeleton     = document.getElementById('skeleton-projects');
-const content      = document.getElementById('content-projects');
-const btnNuevo     = document.getElementById('btnNuevoProyecto');
-const btnLogout    = document.getElementById('btnLogout');
-const modal        = document.getElementById('modal-proyecto');
-const btnCerrar    = document.getElementById('cerrarModalProyecto');
-const form         = document.getElementById('formProyecto');
+// DOM refs
+const lista = document.getElementById('listaProyectos');
+const btnNuevo = document.getElementById('btnNuevoProyecto');
+const btnLogout = document.getElementById('btnLogout');
+const modal = document.getElementById('modal-proyecto');
+const btnCerrar = document.getElementById('cerrarModalProyecto');
+const form = document.getElementById('formProyecto');
 const modalInvitar = document.getElementById('modal-invitar');
-const formInvitar  = document.getElementById('formInvitar');
-const btnCerrarInv = document.getElementById('cerrarModalInvitar');
+const formInvitar = document.getElementById('formInvitar');
+const btnCerrarInvitar = document.getElementById('cerrarModalInvitar');
 
-// ======= Autenticación y listado de proyectos =======
+// Autenticación y carga inicial
 auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.href = 'login.html';
-  } else {
-    listarProyectos(user.uid);
-  }
+  if (!user) return window.location.href = 'login.html';
+  cargarProyectos();
 });
 
-// ======= Cerrar sesión =======
+// Logout
 btnLogout.addEventListener('click', async () => {
   await auth.signOut();
   window.location.href = 'login.html';
 });
 
-// ======= Crear/editar proyecto =======
+// Nuevo proyecto
 btnNuevo.addEventListener('click', () => {
   form.reset();
   form.proyectoId.value = '';
@@ -52,103 +47,120 @@ btnCerrar.addEventListener('click', () => modal.classList.add('hidden'));
 form.addEventListener('submit', async e => {
   e.preventDefault();
   const user = auth.currentUser;
-  const id   = form.proyectoId.value || db.collection('projects').doc().id;
+  const id = form.proyectoId.value || db.collection('projects').doc().id;
   const data = {
-    name:        form.proyectoNombre.value,
+    name: form.proyectoNombre.value,
     description: form.proyectoDescripcion.value || '',
-    owner:       user.uid,
-    members:     firebase.firestore.FieldValue.arrayUnion(user.uid),
-    createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
+    owner: user.uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    // Este es el punto CLAVE: el owner siempre es miembro inicial
+    members: [user.uid]
   };
-  // Guardar el documento de proyecto (merge para no sobrescribir array completo)
+  // Guardar proyecto (no borra miembros existentes si actualiza)
   await db.collection('projects').doc(id).set(data, { merge: true });
-
-  // También lo añadimos en la subcolección (opcional, por consistencia)
+  // Asegurar owner en subcolección de miembros
   await db.collection('projects').doc(id)
     .collection('members').doc(user.uid)
     .set({
-      role:        'owner',
-      invitedBy:   user.uid,
-      joinedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+      role: 'owner',
+      invitedBy: user.uid,
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
       displayName: user.displayName || ''
     });
-
   modal.classList.add('hidden');
 });
 
-// ======= Listar proyectos donde eres miembro =======
-function listarProyectos(uid) {
+// Cargar proyectos donde soy miembro
+function cargarProyectos() {
+  const uid = auth.currentUser.uid;
   db.collection('projects')
     .where('members', 'array-contains', uid)
     .onSnapshot(snap => {
-      // ocultar skeleton y mostrar contenido
-      skeleton.classList.add('hidden');
-      content.classList.remove('invisible');
-
       lista.innerHTML = '';
-      snap.docs
-        .sort((a, b) => {
-          const ta = a.data().createdAt?.seconds || 0;
-          const tb = b.data().createdAt?.seconds || 0;
-          return tb - ta;
-        })
-        .forEach(doc => renderProyecto(doc.id, doc.data()));
-    }, err => {
-      console.error("Error al cargar proyectos:", err);
-      alert("No tienes permiso para ver estos proyectos.");
+      snap.docs.forEach(doc => renderProyecto(doc.id, doc.data()));
     });
 }
 
-// ======= Renderizar un proyecto =======
+// Render de un proyecto
 async function renderProyecto(projectId, p) {
   const li = document.createElement('li');
-  li.className = 'bg-white p-4 rounded shadow mb-4';
-  li.innerHTML = `
-    <div class="flex justify-between items-center">
-      <div class="flex items-center gap-2 cursor-pointer open-project hover:text-blue-600">
-        <i class="fas fa-chart-bar text-black"></i>
-        <span class="font-semibold">${p.name}</span>
-      </div>
-      <div class="flex gap-2">
-        <button class="open-project text-black hover:text-gray-700"><i class="fas fa-list-check"></i></button>
-        <button class="invite-member text-black hover:text-gray-700"><i class="fas fa-user-plus"></i></button>
-        <button class="delete-project text-black hover:text-gray-700"><i class="fas fa-trash"></i></button>
-      </div>
-    </div>
-    <p class="mt-2 text-xs text-gray-600 flex items-center gap-1 members-line">
-      <i class="fas fa-users text-black"></i> Cargando...
-    </p>
-  `;
+  li.className = 'bg-white p-4 rounded shadow';
 
-  // handlers básicos
-  li.querySelectorAll('.open-project').forEach(el =>
-    el.addEventListener('click', () => location.href = `board.html?projectId=${projectId}`)
-  );
-  li.querySelector('.invite-member').addEventListener('click', () => {
-    document.getElementById('invitarProjectId').value = projectId;
-    modalInvitar.classList.remove('hidden');
-  });
-  li.querySelector('.delete-project').addEventListener('click', async () => {
-    if (!confirm('¿Eliminar este proyecto?')) return;
-    await db.collection('projects').doc(projectId).delete();
-  });
+  // Header con iconos y título clicable
+  const header = document.createElement('div');
+  header.className = 'flex justify-between items-center';
+  header.innerHTML = `
+    <div class="project-title flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+      <i class="fas fa-chart-bar text-black"></i>
+      <span class="font-semibold">${p.name}</span>
+    </div>
+    <div class="flex gap-2">
+      <button class="abrir-proyecto text-black hover:text-gray-700">
+        <i class="fas fa-list-check"></i>
+      </button>
+      <button class="agregar-miembro text-black hover:text-gray-700">
+        <i class="fas fa-user-plus"></i>
+      </button>
+      <button class="eliminar-proyecto text-black hover:text-gray-700">
+        <i class="fas fa-trash"></i>
+      </button>
+    </div>
+  `;
+  li.appendChild(header);
+
+  // Título clickable: abre board.html
+  header.querySelector('.project-title')
+    .addEventListener('click', () => {
+      window.location.href = `board.html?projectId=${projectId}`;
+    });
+
+  // Botones
+  header.querySelector('.abrir-proyecto')
+    .addEventListener('click', () => window.location.href = `board.html?projectId=${projectId}`);
+
+  header.querySelector('.agregar-miembro')
+    .addEventListener('click', () => {
+      document.getElementById('invitarProjectId').value = projectId;
+      document.getElementById('invitarFirstName').value = '';
+      document.getElementById('invitarLastName').value = '';
+      document.getElementById('invitarUserEmail').value = '';
+      document.getElementById('invitarRole').value = 'member';
+      modalInvitar.classList.remove('hidden');
+    });
+
+  header.querySelector('.eliminar-proyecto')
+    .addEventListener('click', async () => {
+      if (!confirm('¿Eliminar proyecto y todas sus tareas?')) return;
+      await db.collection('projects').doc(projectId).delete();
+    });
 
   lista.appendChild(li);
 
-  // cargar nombres de members desde el array
-  const names = await Promise.all(
-    p.members.map(async uid => {
-      const u = await db.collection('users').doc(uid).get();
-      return u.exists ? (u.data().displayName || u.data().email) : uid;
-    })
-  );
-  li.querySelector('.members-line')
-    .innerHTML = `<i class="fas fa-users text-black"></i> ${names.join(', ')}`;
+  // Línea de miembros
+  const membersLine = document.createElement('p');
+  membersLine.className = 'mt-2 text-xs text-gray-700 flex items-center gap-1';
+  membersLine.innerHTML = `<i class="fas fa-users text-black"></i> Cargando...`;
+  li.appendChild(membersLine);
+
+  // Cargar miembros y mostrar displayNames
+  const membersSnap = await db.collection('projects').doc(projectId)
+    .collection('members').get();
+
+  const names = await Promise.all(membersSnap.docs.map(async mdoc => {
+    const m = mdoc.data();
+    if (m.displayName) return m.displayName;
+    const usr = await db.collection('users').doc(mdoc.id).get();
+    return usr.exists
+      ? (usr.data().displayName || usr.data().email)
+      : mdoc.id;
+  }));
+
+  membersLine.innerHTML = `<i class="fas fa-users text-black"></i> ${names.join(', ')}`;
 }
 
-// ======= Invitar un miembro (arrayUnion + subcolección) =======
-btnCerrarInv.addEventListener('click', () => modalInvitar.classList.add('hidden'));
+// Modal invitar usuario
+btnCerrarInvitar.addEventListener('click', () => modalInvitar.classList.add('hidden'));
 formInvitar.addEventListener('submit', async e => {
   e.preventDefault();
   const projectId = document.getElementById('invitarProjectId').value;
@@ -158,27 +170,29 @@ formInvitar.addEventListener('submit', async e => {
   const role      = document.getElementById('invitarRole').value;
   const owner     = auth.currentUser.uid;
 
-  // resolver UID por email
-  const q = await db.collection('users').where('email', '==', email).limit(1).get();
+  // Buscar UID vía /users
+  const q = await db.collection('users').where('email','==',email).limit(1).get();
   if (q.empty) {
-    alert("❌ Ese email no existe en el sistema.");
+    alert("❌ El email no existe en el sistema.");
     return;
   }
   const uid = q.docs[0].id;
 
-  // actualizar el array members del proyecto
-  await db.collection('projects').doc(projectId)
-    .update({ members: firebase.firestore.FieldValue.arrayUnion(uid) });
-
-  // y también en subcolección
+  // Guardar en members con displayName
   await db.collection('projects').doc(projectId)
     .collection('members').doc(uid)
     .set({
       role,
-      invitedBy:   owner,
-      joinedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+      invitedBy: owner,
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
       displayName: `${firstName} ${lastName}`
+    });
+  // AGREGAR a members sin borrar los existentes:
+  await db.collection('projects').doc(projectId)
+    .update({
+      members: firebase.firestore.FieldValue.arrayUnion(uid)
     });
 
   modalInvitar.classList.add('hidden');
+  cargarProyectos();
 });
