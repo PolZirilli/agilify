@@ -1,3 +1,5 @@
+// app.js
+
 // ======= Firebase config e inicialización =======
 const firebaseConfig = {
   apiKey: "AIzaSyDTuzGWaKLFzjHPfpVSQDzkSZeIA-Nv-4s",
@@ -38,9 +40,9 @@ const btnCerrar   = document.getElementById('cerrarModal');
 const form        = document.getElementById('formTarea');
 const btnEliminar = document.getElementById('btnEliminar');
 
-// campos
 const inpTitulo      = document.getElementById('titulo');
 const inpDescripcion = document.getElementById('descripcion');
+const inpLinks       = document.getElementById('links');
 const selPrioridad   = document.getElementById('prioridad');
 const inpFecha       = document.getElementById('fecha');
 const selAsignado    = document.getElementById('asignadoA');
@@ -80,6 +82,7 @@ form.addEventListener('submit', e => {
   const data = {
     title:       inpTitulo.value,
     description: inpDescripcion.value,
+    links:       inpLinks.value.split(',').map(u=>u.trim()).filter(u=>u),
     priority:    selPrioridad.value,
     dueDate:     inpFecha.value
                   ? firebase.firestore.Timestamp.fromDate(new Date(inpFecha.value))
@@ -129,15 +132,19 @@ function renderTareas(tareas) {
     card.className = 'bg-gray-200 rounded p-2 mb-2 shadow cursor-pointer';
     card.dataset.id = t.id;
 
-    // Obtener nombre del asignado
+    // Sinopsis de descripción (50 caracteres máximo)
+    const fullDesc = t.description || '';
+    const snippet = fullDesc.length > 50
+      ? fullDesc.slice(0, 50) + '...'
+      : fullDesc;
+
+    // placeholder para nombre asignado
     let assignedName = '';
     if (t.assignedTo) {
-      // buscamos en members collection
       db.collection('projects').doc(projectId)
         .collection('members').doc(t.assignedTo)
         .get().then(mdoc => {
-          const m = mdoc.data();
-          assignedName = m?.displayName || '';
+          assignedName = mdoc.data()?.displayName || '';
           card.querySelector('.assigned').textContent = assignedName;
         });
     }
@@ -151,16 +158,16 @@ function renderTareas(tareas) {
           ${t.priority}
         </div>
       </div>
-      <div class="text-xs mb-1 truncate">${t.description || ''}</div>
+      <div class="text-xs mb-1">${snippet}</div>
       <div class="text-xs text-gray-500 mb-1">
         <span class="font-semibold">Asignado a:</span>
         <span class="assigned"></span>
       </div>
       <div class="text-xs text-gray-500">
-        <span>${t.dueDate
+        ${t.dueDate
           ? new Date(t.dueDate.seconds*1000).toLocaleDateString()
           : ''
-        }</span>
+        }
       </div>
     `;
     card.addEventListener('click', () => abrirModalEditarTarea(t));
