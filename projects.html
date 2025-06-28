@@ -17,6 +17,24 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <script>
+firebase.auth().onAuthStateChanged(function(user){
+  if(user) {
+    console.log("UID del usuario logueado:", user.uid);
+    firebase.firestore().collection("projects")
+      .where("members", "array-contains", user.uid)
+      .get()
+      .then(snap => {
+        if(snap.empty) {
+          console.log("NO HAY proyectos con ese UID en members");
+        } else {
+          snap.forEach(doc => console.log("Proyecto encontrado:", doc.data()));
+        }
+      }).catch(err => console.error("ERROR Firestore:", err));
+  }
+});
+</script>
+
 </head>
 <body class="bg-gray-100 flex flex-col min-h-screen">
 
