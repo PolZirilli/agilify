@@ -18,6 +18,40 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
+<!-- Tu inicialización Firebase, con tu config -->
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDTuzGWaKLFzjHPfpVSQDzkSZeIA-Nv-4s",
+    authDomain: "agilify-c9abf.firebaseapp.com",
+    projectId: "agilify-c9abf",
+    storageBucket: "agilify-c9abf.firebasestorage.app",
+    messagingSenderId: "115735342206",
+    appId: "1:115735342206:web:1ff5368de61190dac53c2f"
+  };
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+</script>
+
+<!-- Tu código de testeo o lo que pegaste antes -->
+<script>
+firebase.auth().onAuthStateChanged(function(user){
+  if(user) {
+    console.log("UID del usuario logueado:", user.uid);
+    firebase.firestore().collection("projects")
+      .where("members", "array-contains", user.uid)
+      .get()
+      .then(snap => {
+        if(snap.empty) {
+          console.log("NO HAY proyectos con ese UID en members");
+        } else {
+          snap.forEach(doc => console.log("Proyecto encontrado:", doc.data()));
+        }
+      }).catch(err => console.error("ERROR Firestore:", err));
+  }
+});
+</script>
+
 
 </head>
 <body class="bg-gray-100 flex flex-col min-h-screen">
