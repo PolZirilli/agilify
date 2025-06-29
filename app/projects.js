@@ -1,4 +1,4 @@
-// ======= Firebase config e inicialización =======
+// Firebase config e inicialización
 const firebaseConfig = {
   apiKey: "AIzaSyDTuzGWaKLFzjHPfpVSQDzkSZeIA-Nv-4s",
   authDomain: "agilify-c9abf.firebaseapp.com",
@@ -7,181 +7,202 @@ const firebaseConfig = {
   messagingSenderId: "115735342206",
   appId: "1:115735342206:web:1ff5368de61190dac53c2f"
 };
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ======= DOM refs =======
-const lista           = document.getElementById('listaProyectos');
-const skeleton        = document.getElementById('skeleton-projects');
-const content         = document.getElementById('content-projects');
-const btnNuevo        = document.getElementById('btnNuevoProyecto');
-const btnLogout       = document.getElementById('btnLogout');
-const modal           = document.getElementById('modal-proyecto');
-const btnCerrar       = document.getElementById('cerrarModalProyecto');
-const form            = document.getElementById('formProyecto');
-const modalInvitar    = document.getElementById('modal-invitar');
-const formInvitar     = document.getElementById('formInvitar');
-const btnCerrarInv    = document.getElementById('cerrarModalInvitar');
+// DOM refs
+const lista               = document.getElementById('listaProyectos');
+const skeleton            = document.getElementById('skeletonProyectos');
+const btnNuevoProyecto    = document.getElementById('btnNuevoProyecto');
+const btnLogout           = document.getElementById('btnLogout');
+const btnPerfil           = document.getElementById('btnPerfil');
+const modalProyecto       = document.getElementById('modal-proyecto');
+const btnCerrarProyecto   = document.getElementById('cerrarModalProyecto');
+const formProyecto        = document.getElementById('formProyecto');
+const modalInvitar        = document.getElementById('modal-invitar');
+const btnCerrarInvitar    = document.getElementById('cerrarModalInvitar');
+const formInvitar         = document.getElementById('formInvitar');
+const modalPerfil         = document.getElementById('modal-perfil');
+const btnCerrarPerfil     = document.getElementById('cerrarModalPerfil');
+const perfilContenido     = document.getElementById('perfilContenido');
 
-// Estado local para evitar duplicados
-const proyectosMap = {};
+// Toastify wrapper
+function toast(msg, bg = "#3B82F6") {
+  Toastify({
+    text: msg,
+    duration: 3000,
+    gravity: "top",
+    position: "right",
+    style: { background: bg }
+  }).showToast();
+}
 
-// ======= Autenticación y carga inicial =======
+// Autenticación inicial
 auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.href = 'login.html';
-  } else {
-    cargarProyectos();
-  }
+  if (!user) return window.location.href = 'login.html';
+  cargarProyectos(user.uid);
+  cargarPerfil(user.uid);
 });
 
-// ======= Logout =======
+// Logout
 btnLogout.addEventListener('click', async () => {
   await auth.signOut();
   window.location.href = 'login.html';
 });
 
-// ======= Nuevo proyecto =======
-btnNuevo.addEventListener('click', () => {
-  form.reset();
-  form.proyectoId.value = '';
-  modal.classList.remove('hidden');
+// Nuevo proyecto
+btnNuevoProyecto.addEventListener('click', () => {
+  formProyecto.reset();
+  formProyecto.proyectoId.value = '';
+  modalProyecto.classList.remove('hidden');
 });
-btnCerrar.addEventListener('click', () => modal.classList.add('hidden'));
-form.addEventListener('submit', async e => {
+btnCerrarProyecto.addEventListener('click', () => modalProyecto.classList.add('hidden'));
+
+// Crear/Editar proyecto
+formProyecto.addEventListener('submit', async e => {
   e.preventDefault();
   const user = auth.currentUser;
-  const id = form.proyectoId.value || db.collection('projects').doc().id;
+  if (!user) { toast("Debes iniciar sesión.", "#EF4444"); return; }
+
+  const id = formProyecto.proyectoId.value || db.collection('projects').doc().id;
   const data = {
-    name:        form.proyectoNombre.value,
-    description: form.proyectoDescripcion.value || '',
-    owner:       user.uid,
-    createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
+    name: formProyecto.proyectoNombre.value,
+    description: formProyecto.proyectoDescripcion.value || '',
+    owner: user.uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    members: [user.uid]
   };
-  // Guardar proyecto
-  await db.collection('projects').doc(id).set(data, { merge: true });
-  // Asegurar owner en members
-  await db.collection('projects').doc(id)
-    .collection('members').doc(user.uid)
-    .set({
-      role:        'owner',
-      invitedBy:   user.uid,
-      joinedAt:    firebase.firestore.FieldValue.serverTimestamp(),
-      displayName: user.displayName || ''
-    });
-  modal.classList.add('hidden');
+  try {
+    await db.collection('projects').doc(id).set(data, { merge: true });
+    await db.collection('projects').doc(id)
+      .collection('members').doc(user.uid)
+      .set({
+        role: 'owner',
+        invitedBy: user.uid,
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        displayName: user.displayName || ''
+      });
+    toast("Proyecto guardado correctamente", "#22C55E");
+    modalProyecto.classList.add('hidden');
+  } catch (err) {
+    console.error(err);
+    toast("Error al guardar proyecto", "#EF4444");
+  }
 });
 
-// ======= Carga dual de proyectos =======
-function cargarProyectos() {
-  const uid = auth.currentUser.uid;
-
-  // 1) proyectos que creaste
+// Cargar proyectos
+function cargarProyectos(uid) {
+  if (skeleton) skeleton.classList.remove('hidden');
   db.collection('projects')
-    .where('owner', '==', uid)
-    .onSnapshot(snap => {
-      snap.docs.forEach(doc => {
-        proyectosMap[doc.id] = { id: doc.id, ...doc.data() };
-      });
-      renderProyectos();
-    });
-
-  // 2) proyectos donde eres miembro (Collection Group)
-  db.collectionGroup('members')
-    .where(firebase.firestore.FieldPath.documentId(), '==', uid)
-    .onSnapshot(async snap => {
-      // Por cada doc de miembro, obtenemos su proyecto padre
-      for (let mdoc of snap.docs) {
-        const projectId = mdoc.ref.parent.parent.id;
-        if (!proyectosMap[projectId]) {
-          const pdoc = await db.collection('projects').doc(projectId).get();
-          if (pdoc.exists) {
-            proyectosMap[projectId] = { id: pdoc.id, ...pdoc.data() };
-          }
-        }
+    .where('members','array-contains',uid)
+    .onSnapshot(snapshot => {
+      lista.innerHTML = '';
+      if (snapshot.empty) {
+        lista.innerHTML = `<li class="text-center text-gray-400 py-8">No tienes proyectos.</li>`;
+        return;
       }
-      renderProyectos();
+      snapshot.docs.forEach(doc => renderProyecto(doc.id, doc.data()));
+    }, err => {
+      console.error(err);
+      toast("Error cargando proyectos", "#EF4444");
     });
 }
 
-// ======= Render de proyectos combinados =======
-function renderProyectos() {
-  // Primera vez: ocultar skeleton y mostrar contenido
-  skeleton.classList.add('hidden');
-  content.classList.remove('invisible');
-
-  lista.innerHTML = '';
-  Object.values(proyectosMap).forEach(p => {
-    const li = document.createElement('li');
-    li.className = 'bg-white p-4 rounded shadow mb-4';
-    li.innerHTML = `
-      <div class="flex justify-between items-center">
-        <div class="flex items-center gap-2 cursor-pointer hover:text-blue-600 open-project">
-          <i class="fas fa-chart-bar text-black"></i>
-          <span class="font-semibold">${p.name}</span>
-        </div>
-        <div class="flex gap-2">
-          <button class="open-project text-black hover:text-gray-700"><i class="fas fa-list-check"></i></button>
-          <button class="invite-member text-black hover:text-gray-700"><i class="fas fa-user-plus"></i></button>
-          <button class="delete-project text-black hover:text-gray-700"><i class="fas fa-trash"></i></button>
-        </div>
+// Render de un proyecto (con carga de miembros corregida)
+async function renderProyecto(projectId, p) {
+  const li = document.createElement('li');
+  li.className = 'bg-white p-4 rounded shadow';
+  li.innerHTML = `
+    <div class="flex justify-between items-center">
+      <div class="project-title flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+        <i class="fas fa-chart-bar"></i>
+        <span class="font-semibold">${p.name}</span>
       </div>
-      <p class="mt-2 text-xs text-gray-600 flex items-center gap-1 members-line">
-        <i class="fas fa-users text-black"></i> Cargando...
-      </p>
-    `;
-    // abrir tablero
-    li.querySelectorAll('.open-project').forEach(el =>
-      el.addEventListener('click', () => window.location.href = `board.html?projectId=${p.id}`)
-    );
-    // invitar miembro
-    li.querySelector('.invite-member').addEventListener('click', () => {
-      document.getElementById('invitarProjectId').value = p.id;
-      modalInvitar.classList.remove('hidden');
-    });
-    // borrar proyecto
-    li.querySelector('.delete-project').addEventListener('click', async () => {
-      if (!confirm('¿Eliminar proyecto y sus datos?')) return;
-      await db.collection('projects').doc(p.id).delete();
-      delete proyectosMap[p.id];
-      renderProyectos();
-    });
+      <div class="flex gap-2">
+        <button class="abrir-proyecto" title="Abrir"><i class="fas fa-list-check"></i></button>
+        <button class="agregar-miembro" title="Invitar"><i class="fas fa-user-plus"></i></button>
+        <button class="eliminar-proyecto" title="Eliminar"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+    <p class="mt-2 text-xs text-gray-700 flex items-center gap-1">
+      <i class="fas fa-users"></i> Cargando...
+    </p>
+  `;
+  lista.appendChild(li);
 
-    lista.appendChild(li);
+  // Abrir board
+  li.querySelector('.project-title').onclick =
+    () => window.location.href = `board.html?projectId=${projectId}`;
+  li.querySelector('.abrir-proyecto').onclick =
+    () => window.location.href = `board.html?projectId=${projectId}`;
 
-    // Cargar miembros para la línea inferior
-    db.collection('projects').doc(p.id)
-      .collection('members').get()
-      .then(msnap => {
-        const names = msnap.docs.map(d => d.data().displayName);
-        li.querySelector('.members-line')
-          .innerHTML = `<i class="fas fa-users text-black"></i> ${names.join(', ')}`;
-      });
-  });
+  // Invitar miembro
+  li.querySelector('.agregar-miembro').onclick = () => {
+    formInvitar.reset();
+    formInvitar.invitarProjectId.value = projectId;
+    modalInvitar.classList.remove('hidden');
+  };
+
+  // Eliminar con SweetAlert2
+  li.querySelector('.eliminar-proyecto').onclick = async () => {
+    const res = await Swal.fire({
+      title: '¿Eliminar proyecto?',
+      text: 'Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (res.isConfirmed) {
+      await db.collection('projects').doc(projectId).delete();
+      toast("Proyecto eliminado", "#EF4444");
+    }
+  };
+
+  // Cargar miembros desde subcolección o fallback al owner
+  const pLine = li.querySelector('p');
+  const snapM = await db.collection('projects').doc(projectId).collection('members').get();
+  let names = [];
+
+  if (!snapM.empty) {
+    for (const doc of snapM.docs) {
+      const m = doc.data();
+      if (m.displayName && m.displayName.trim()) {
+        names.push(m.displayName);
+      } else {
+        // fallback a /users doc
+        const u = await db.collection('users').doc(doc.id).get();
+        if (u.exists && u.data().displayName) names.push(u.data().displayName);
+        else names.push(u.exists ? u.data().email : doc.id);
+      }
+    }
+  } else {
+    // si no hay docs en members, mostramos al owner
+    const u = await db.collection('users').doc(p.owner).get();
+    if (u.exists && u.data().displayName) names.push(u.data().displayName);
+    else names.push(u.exists ? u.data().email : p.owner);
+  }
+
+  pLine.innerHTML = `<i class="fas fa-users"></i> ${names.join(', ')}`;
 }
 
-// ======= Modal invitar usuario =======
-btnCerrarInv.addEventListener('click', () => modalInvitar.classList.add('hidden'));
-formInvitar.addEventListener('submit', async e => {
+// Invitar miembro
+btnCerrarInvitar.onclick = () => modalInvitar.classList.add('hidden');
+formInvitar.onsubmit = async e => {
   e.preventDefault();
-  const projectId = document.getElementById('invitarProjectId').value;
-  const firstName = document.getElementById('invitarFirstName').value.trim();
-  const lastName  = document.getElementById('invitarLastName').value.trim();
-  const email     = document.getElementById('invitarUserEmail').value.trim().toLowerCase();
-  const role      = document.getElementById('invitarRole').value;
+  const projectId = formInvitar.invitarProjectId.value;
+  const firstName = formInvitar.invitarFirstName.value.trim();
+  const lastName  = formInvitar.invitarLastName.value.trim();
+  const email     = formInvitar.invitarUserEmail.value.trim().toLowerCase();
+  const role      = formInvitar.invitarRole.value;
   const owner     = auth.currentUser.uid;
 
-  // Buscar UID vía users
   const q = await db.collection('users').where('email','==',email).limit(1).get();
-  if (q.empty) {
-    alert("❌ El email no existe en el sistema.");
-    return;
-  }
+  if (q.empty) { toast("Email no registrado", "#F59E0B"); return; }
   const uid = q.docs[0].id;
 
-  // Guardar en members
   await db.collection('projects').doc(projectId)
     .collection('members').doc(uid)
     .set({
@@ -190,7 +211,29 @@ formInvitar.addEventListener('submit', async e => {
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
       displayName: `${firstName} ${lastName}`
     });
+  await db.collection('projects').doc(projectId)
+    .update({ members: firebase.firestore.FieldValue.arrayUnion(uid) });
 
   modalInvitar.classList.add('hidden');
-  cargarProyectos();
-});
+  toast("Miembro agregado", "#22C55E");
+  cargarProyectos(owner);
+};
+
+// Cargar perfil
+async function cargarPerfil(uid) {
+  const user = auth.currentUser;
+  const ud   = await db.collection('users').doc(uid).get();
+  const name = ud.exists ? ud.data().displayName : user.displayName || '';
+  const email= user.email;
+  const snap = await db.collection('projects').where('members','array-contains',uid).get();
+
+  let html = `<div><b>Nombre:</b> ${name}</div><div><b>Email:</b> ${email}</div>
+    <div><b>Proyectos:</b><ul>`;
+  if (snap.empty) html += `<li>Ninguno</li>`;
+  snap.forEach(d => html += `<li>${d.data().name}</li>`);
+  html += `</ul></div>`;
+
+  perfilContenido.innerHTML = html;
+  btnPerfil.onclick = () => modalPerfil.classList.remove('hidden');
+  btnCerrarPerfil.onclick = () => modalPerfil.classList.add('hidden');
+}

@@ -1,4 +1,4 @@
-// ======= Firebase config e inicialización =======
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDTuzGWaKLFzjHPfpVSQDzkSZeIA-Nv-4s",
   authDomain: "agilify-c9abf.firebaseapp.com",
@@ -11,42 +11,47 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ======= Referencias al DOM =======
-const skeleton = document.getElementById('skeleton-login');
-const content  = document.getElementById('content-login');
-const formLogin = document.getElementById('formLogin');
-const btnOpenRegister   = document.getElementById('btnOpenRegister');
-const modalRegister     = document.getElementById('modal-register');
-const btnCerrarRegister = document.getElementById('cerrarModalRegister');
-const formRegister      = document.getElementById('formRegister');
-
-// ======= Control de autenticación =======
+// Redirección si ya está autenticado
 auth.onAuthStateChanged(user => {
-  // Primero ocultar el skeleton y mostrar el contenido
-  skeleton.classList.add('hidden');
-  content.classList.remove('invisible');
-
-  if (user) {
-    window.location.href = 'projects.html';
-  }
+  if (user) window.location.href = 'projects.html';
 });
 
-// ======= Manejo del login =======
+// Toast helper
+function toast(msg, type="info") {
+  Toastify({
+    text: msg,
+    duration: 3500,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: type === "error" ? "#e3342f"
+                : type === "success" ? "#38a169"
+                : "#4299e1"
+    }
+  }).showToast();
+}
+
+// Login
+const formLogin = document.getElementById('formLogin');
 formLogin.addEventListener('submit', async e => {
   e.preventDefault();
-  const email    = document.getElementById('email').value.trim();
+  const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value.trim();
-
   try {
     await auth.signInWithEmailAndPassword(email, password);
+    toast("Login exitoso", "success");
     window.location.href = 'projects.html';
   } catch (error) {
-    console.error("❌ Error en login:", error);
-    alert("Error en login: " + error.message);
+    toast("Error en login: " + error.message, "error");
   }
 });
 
-// ======= Mostrar/Ocultar modal de registro =======
+// Registro
+const btnOpenRegister = document.getElementById('btnOpenRegister');
+const modalRegister = document.getElementById('modal-register');
+const btnCerrarRegister = document.getElementById('cerrarModalRegister');
+const formRegister = document.getElementById('formRegister');
+
 btnOpenRegister.addEventListener('click', () => {
   modalRegister.classList.remove('hidden');
 });
@@ -54,39 +59,37 @@ btnCerrarRegister.addEventListener('click', () => {
   modalRegister.classList.add('hidden');
 });
 
-// ======= Registro de usuario =======
 formRegister.addEventListener('submit', async e => {
   e.preventDefault();
-  const nombre   = document.getElementById('registerNombre').value.trim();
+  const nombre = document.getElementById('registerNombre').value.trim();
   const apellido = document.getElementById('registerApellido').value.trim();
-  const email    = document.getElementById('registerEmail').value.trim().toLowerCase();
+  const email = document.getElementById('registerEmail').value.trim().toLowerCase();
   const password = document.getElementById('registerPassword').value.trim();
 
   if (!nombre || !apellido || !email || !password) {
-    alert("Todos los campos son obligatorios.");
+    toast("Todos los campos son obligatorios.", "error");
     return;
   }
-
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
     const displayName = `${nombre} ${apellido}`;
-
-    // Actualizar displayName en Auth
     await user.updateProfile({ displayName });
 
     // Guardar en /users
     await db.collection('users').doc(user.uid).set({
-      email,
+      nombre,
+      apellido,
       displayName,
-      role: 'user',
+      email: user.email,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
+    toast("Usuario registrado correctamente", "success");
     modalRegister.classList.add('hidden');
     window.location.href = 'projects.html';
-  } catch (err) {
-    console.error("❌ Error registrando usuario:", err);
-    alert("Error: " + err.message);
-  }
+  } catch (error) {
+  toast("Los datos de acceso son incorrectos. Intenta nuevamente.", "error");
+}
+
 });
