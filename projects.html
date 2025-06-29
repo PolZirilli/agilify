@@ -6,13 +6,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <!-- TailwindCSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Font Awesome Free -->
+  <!-- Font Awesome -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   />
+  <!-- ToastifyJS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -24,43 +29,38 @@
   <header class="flex items-center justify-between p-4 bg-white shadow">
     <h1 class="text-2xl font-bold">Agilify</h1>
     <div class="flex gap-2">
-      <button id="btnNuevoProyecto"
-              class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-        <i class="fas fa-plus"></i>
-        Nuevo
+      <button id="btnPerfil" class="flex items-center px-4 py-2 text-black hover:text-gray-700">
+        <i class="fas fa-user"></i>
       </button>
-      <button id="btnLogout"
-              class="flex items-center px-4 py-2 text-black hover:text-gray-700">
+      <button id="btnNuevoProyecto" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <i class="fas fa-plus"></i> Nuevo
+      </button>
+      <button id="btnLogout" class="flex items-center px-4 py-2 text-black hover:text-gray-700">
         <i class="fas fa-sign-out-alt"></i>
       </button>
     </div>
   </header>
 
-  <!-- Subtítulo de sección -->
+  <!-- Subtítulo -->
   <div class="flex items-center gap-2 mt-6 px-4">
     <i class="fas fa-chart-bar text-black"></i>
     <span class="text-xl font-bold">Mis Proyectos</span>
   </div>
 
-  <!-- Skeleton carga proyectos -->
-  <div id="skeleton-projects" class="p-4 space-y-4">
-    <div class="h-12 bg-gray-300 rounded animate-pulse"></div>
-    <div class="h-12 bg-gray-300 rounded animate-pulse"></div>
-    <div class="h-12 bg-gray-300 rounded animate-pulse"></div>
-  </div>
-
-  <!-- Lista de proyectos (invisible hasta carga) -->
-  <main id="content-projects" class="flex-1 p-4 invisible">
+  <!-- Lista con skeleton -->
+  <main class="flex-1 p-4">
     <ul id="listaProyectos" class="w-full space-y-4">
-      <!-- aquí se insertan los proyectos -->
+      <li id="skeletonProyectos" class="animate-pulse bg-white p-4 rounded shadow">
+        <div class="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+      </li>
     </ul>
   </main>
 
   <!-- Modal Crear/Editar Proyecto -->
   <div id="modal-proyecto" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
     <div class="bg-white p-6 rounded max-w-md w-full relative shadow-lg">
-      <button id="cerrarModalProyecto"
-              class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
+      <button id="cerrarModalProyecto" class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
       <form id="formProyecto" class="space-y-4">
         <input type="hidden" id="proyectoId">
         <div>
@@ -71,19 +71,17 @@
           <label class="block font-semibold">Descripción (opcional)</label>
           <textarea id="proyectoDescripcion" rows="3" class="w-full border rounded px-2 py-1"></textarea>
         </div>
-        <button type="submit"
-                class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
           Guardar Proyecto
         </button>
       </form>
     </div>
   </div>
 
-  <!-- Modal Agregar Usuario al Proyecto -->
+  <!-- Modal Invitar Miembro -->
   <div id="modal-invitar" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
     <div class="bg-white p-6 rounded max-w-md w-full relative shadow-lg">
-      <button id="cerrarModalInvitar"
-              class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
+      <button id="cerrarModalInvitar" class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
       <form id="formInvitar" class="space-y-4">
         <input type="hidden" id="invitarProjectId">
         <div>
@@ -105,11 +103,19 @@
             <option value="admin">Admin</option>
           </select>
         </div>
-        <button type="submit"
-                class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
           <i class="fas fa-user-plus"></i> Agregar
         </button>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Perfil Usuario -->
+  <div id="modal-perfil" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+    <div class="bg-white p-6 rounded max-w-md w-full relative shadow-lg">
+      <button id="cerrarModalPerfil" class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
+      <h2 class="text-xl font-bold mb-4 text-center">Perfil de Usuario</h2>
+      <div id="perfilContenido" class="space-y-2"></div>
     </div>
   </div>
 
