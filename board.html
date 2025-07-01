@@ -7,7 +7,12 @@
   <!-- TailwindCSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -38,6 +43,9 @@
     </div>
   </div>
 
+  <!-- Nombre del Proyecto -->
+  <div id="projectNameDisplay" class="px-4 py-2 bg-white text-xl font-semibold border-b"></div>
+
   <!-- Kanban -->
   <div class="flex flex-col md:flex-row gap-4 p-4 flex-1 overflow-auto">
     <div class="kanban-column w-full md:flex-1 bg-white rounded p-2" data-status="a-realizar">
@@ -58,7 +66,7 @@
     </div>
   </div>
 
-  <!-- Modal Tarea -->
+  <!-- Modal Tarea (más ancho) -->
   <div id="modal-task" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
     <div class="bg-white p-6 rounded max-w-3xl w-11/12 relative shadow-lg">
       <button id="cerrarModal" class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
@@ -122,7 +130,7 @@
         </div>
       </form>
 
-      <!--  Comentarios  -->
+      <!-- Comentarios -->
       <div id="commentsSection" class="mt-4">
         <h3 class="font-semibold mb-2">Comentarios</h3>
         <div id="commentsList" class="max-h-40 overflow-auto space-y-2 mb-4 p-2 bg-gray-50 rounded"></div>
