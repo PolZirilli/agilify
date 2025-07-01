@@ -9,25 +9,25 @@ const firebaseConfig = {
 };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db = firebase.firestore();
+const db   = firebase.firestore();
 
 // DOM refs
-const lista               = document.getElementById('listaProyectos');
-const skeleton            = document.getElementById('skeletonProyectos');
-const btnNuevoProyecto    = document.getElementById('btnNuevoProyecto');
-const btnLogout           = document.getElementById('btnLogout');
-const btnPerfil           = document.getElementById('btnPerfil');
-const modalProyecto       = document.getElementById('modal-proyecto');
-const btnCerrarProyecto   = document.getElementById('cerrarModalProyecto');
-const formProyecto        = document.getElementById('formProyecto');
-const modalInvitar        = document.getElementById('modal-invitar');
-const btnCerrarInvitar    = document.getElementById('cerrarModalInvitar');
-const formInvitar         = document.getElementById('formInvitar');
-const modalPerfil         = document.getElementById('modal-perfil');
-const btnCerrarPerfil     = document.getElementById('cerrarModalPerfil');
-const perfilContenido     = document.getElementById('perfilContenido');
+const lista             = document.getElementById('listaProyectos');
+const skeleton          = document.getElementById('skeletonProyectos');
+const btnNuevoProyecto  = document.getElementById('btnNuevoProyecto');
+const btnLogout         = document.getElementById('btnLogout');
+const btnPerfil         = document.getElementById('btnPerfil');
+const modalProyecto     = document.getElementById('modal-proyecto');
+const btnCerrarProyecto = document.getElementById('cerrarModalProyecto');
+const formProyecto      = document.getElementById('formProyecto');
+const modalInvitar      = document.getElementById('modal-invitar');
+const btnCerrarInvitar  = document.getElementById('cerrarModalInvitar');
+const formInvitar       = document.getElementById('formInvitar');
+const modalPerfil       = document.getElementById('modal-perfil');
+const btnCerrarPerfil   = document.getElementById('cerrarModalPerfil');
+const perfilContenido   = document.getElementById('perfilContenido');
 
-// Toastify wrapper
+// Toast helper
 function toast(msg, bg = "#3B82F6") {
   Toastify({
     text: msg,
@@ -38,7 +38,7 @@ function toast(msg, bg = "#3B82F6") {
   }).showToast();
 }
 
-// Autenticación inicial
+// Autenticación y carga inicial
 auth.onAuthStateChanged(user => {
   if (!user) return window.location.href = 'login.html';
   cargarProyectos(user.uid);
@@ -59,94 +59,107 @@ btnNuevoProyecto.addEventListener('click', () => {
 });
 btnCerrarProyecto.addEventListener('click', () => modalProyecto.classList.add('hidden'));
 
-// Crear/Editar proyecto
+// Guardar/editar proyecto
 formProyecto.addEventListener('submit', async e => {
   e.preventDefault();
   const user = auth.currentUser;
-  if (!user) { toast("Debes iniciar sesión.", "#EF4444"); return; }
+  if (!user) { toast("Debes iniciar sesión", "#EF4444"); return; }
 
   const id = formProyecto.proyectoId.value || db.collection('projects').doc().id;
   const data = {
-    name: formProyecto.proyectoNombre.value,
+    name:        formProyecto.proyectoNombre.value,
     description: formProyecto.proyectoDescripcion.value || '',
-    owner: user.uid,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    members: [user.uid]
+    owner:       user.uid,
+    createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt:   firebase.firestore.FieldValue.serverTimestamp(),
+    members:     [user.uid]
   };
+
   try {
     await db.collection('projects').doc(id).set(data, { merge: true });
+    // Asegurar subcolección members
     await db.collection('projects').doc(id)
       .collection('members').doc(user.uid)
       .set({
-        role: 'owner',
-        invitedBy: user.uid,
-        joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        role:       'owner',
+        invitedBy:  user.uid,
+        joinedAt:   firebase.firestore.FieldValue.serverTimestamp(),
         displayName: user.displayName || ''
       });
-    toast("Proyecto guardado correctamente", "#22C55E");
+    toast("Proyecto guardado", "#22C55E");
     modalProyecto.classList.add('hidden');
   } catch (err) {
     console.error(err);
-    toast("Error al guardar proyecto", "#EF4444");
+    toast("Error al guardar", "#EF4444");
   }
 });
 
 // Cargar proyectos
 function cargarProyectos(uid) {
   if (skeleton) skeleton.classList.remove('hidden');
+
   db.collection('projects')
-    .where('members','array-contains',uid)
-    .onSnapshot(snapshot => {
+    .where('members', 'array-contains', uid)
+    .onSnapshot(snap => {
       lista.innerHTML = '';
-      if (snapshot.empty) {
+      if (snap.empty) {
         lista.innerHTML = `<li class="text-center text-gray-400 py-8">No tienes proyectos.</li>`;
         return;
       }
-      snapshot.docs.forEach(doc => renderProyecto(doc.id, doc.data()));
+      snap.docs.forEach(doc => renderProyecto(doc.id, doc.data()));
     }, err => {
       console.error(err);
       toast("Error cargando proyectos", "#EF4444");
     });
 }
 
-// Render de un proyecto (con carga de miembros corregida)
+// Render proyecto (con botón editar)
 async function renderProyecto(projectId, p) {
   const li = document.createElement('li');
   li.className = 'bg-white p-4 rounded shadow';
-  li.innerHTML = `
-    <div class="flex justify-between items-center">
-      <div class="project-title flex items-center gap-2 hover:text-blue-600 cursor-pointer">
-        <i class="fas fa-chart-bar"></i>
-        <span class="font-semibold">${p.name}</span>
-      </div>
-      <div class="flex gap-2">
-        <button class="abrir-proyecto" title="Abrir"><i class="fas fa-list-check"></i></button>
-        <button class="agregar-miembro" title="Invitar"><i class="fas fa-user-plus"></i></button>
-        <button class="eliminar-proyecto" title="Eliminar"><i class="fas fa-trash"></i></button>
-      </div>
-    </div>
-    <p class="mt-2 text-xs text-gray-700 flex items-center gap-1">
-      <i class="fas fa-users"></i> Cargando...
-    </p>
-  `;
-  lista.appendChild(li);
 
-  // Abrir board
-  li.querySelector('.project-title').onclick =
-    () => window.location.href = `board.html?projectId=${projectId}`;
-  li.querySelector('.abrir-proyecto').onclick =
-    () => window.location.href = `board.html?projectId=${projectId}`;
+  const header = document.createElement('div');
+  header.className = 'flex justify-between items-center';
+  header.innerHTML = `
+    <div class="project-title flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+      <i class="fas fa-chart-bar"></i>
+      <span class="font-semibold">${p.name}</span>
+    </div>
+    <div class="flex gap-2">
+      <button class="abrir-proyecto" title="Abrir"><i class="fas fa-list-check"></i></button>
+      <button class="editar-proyecto" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+      <button class="agregar-miembro" title="Invitar"><i class="fas fa-user-plus"></i></button>
+      <button class="eliminar-proyecto" title="Eliminar"><i class="fas fa-trash"></i></button>
+    </div>
+  `;
+  li.appendChild(header);
+
+  // Abrir proyecto
+  header.querySelector('.project-title').addEventListener('click', () =>
+    window.location.href = `board.html?projectId=${projectId}`
+  );
+  header.querySelector('.abrir-proyecto').addEventListener('click', () =>
+    window.location.href = `board.html?projectId=${projectId}`
+  );
+
+  // Editar proyecto
+  header.querySelector('.editar-proyecto').addEventListener('click', () => {
+    formProyecto.reset();
+    formProyecto.proyectoId.value          = projectId;
+    formProyecto.proyectoNombre.value      = p.name;
+    formProyecto.proyectoDescripcion.value = p.description || '';
+    modalProyecto.classList.remove('hidden');
+  });
 
   // Invitar miembro
-  li.querySelector('.agregar-miembro').onclick = () => {
+  header.querySelector('.agregar-miembro').addEventListener('click', () => {
     formInvitar.reset();
     formInvitar.invitarProjectId.value = projectId;
     modalInvitar.classList.remove('hidden');
-  };
+  });
 
-  // Eliminar con SweetAlert2
-  li.querySelector('.eliminar-proyecto').onclick = async () => {
+  // Eliminar con confirmación SweetAlert2
+  header.querySelector('.eliminar-proyecto').addEventListener('click', async () => {
     const res = await Swal.fire({
       title: '¿Eliminar proyecto?',
       text: 'Esta acción no se puede deshacer.',
@@ -159,38 +172,38 @@ async function renderProyecto(projectId, p) {
       await db.collection('projects').doc(projectId).delete();
       toast("Proyecto eliminado", "#EF4444");
     }
-  };
+  });
 
-  // Cargar miembros desde subcolección o fallback al owner
-  const pLine = li.querySelector('p');
+  lista.appendChild(li);
+
+  // Línea de miembros
+  const membersLine = document.createElement('p');
+  membersLine.className = 'mt-2 text-xs text-gray-700 flex items-center gap-1';
+  membersLine.innerHTML = `<i class="fas fa-users"></i> Cargando...`;
+  li.appendChild(membersLine);
+
+  // Cargar y mostrar miembros
   const snapM = await db.collection('projects').doc(projectId).collection('members').get();
   let names = [];
-
   if (!snapM.empty) {
-    for (const doc of snapM.docs) {
-      const m = doc.data();
-      if (m.displayName && m.displayName.trim()) {
-        names.push(m.displayName);
-      } else {
-        // fallback a /users doc
-        const u = await db.collection('users').doc(doc.id).get();
-        if (u.exists && u.data().displayName) names.push(u.data().displayName);
-        else names.push(u.exists ? u.data().email : doc.id);
+    for (const d of snapM.docs) {
+      const m = d.data();
+      if (m.displayName) names.push(m.displayName);
+      else {
+        const u = await db.collection('users').doc(d.id).get();
+        names.push(u.exists ? (u.data().displayName || u.data().email) : d.id);
       }
     }
   } else {
-    // si no hay docs en members, mostramos al owner
     const u = await db.collection('users').doc(p.owner).get();
-    if (u.exists && u.data().displayName) names.push(u.data().displayName);
-    else names.push(u.exists ? u.data().email : p.owner);
+    names.push(u.exists ? (u.data().displayName || u.data().email) : p.owner);
   }
-
-  pLine.innerHTML = `<i class="fas fa-users"></i> ${names.join(', ')}`;
+  membersLine.innerHTML = `<i class="fas fa-users"></i> ${names.join(', ')}`;
 }
 
-// Invitar miembro
-btnCerrarInvitar.onclick = () => modalInvitar.classList.add('hidden');
-formInvitar.onsubmit = async e => {
+// Modal invitar
+btnCerrarInvitar.addEventListener('click', () => modalInvitar.classList.add('hidden'));
+formInvitar.addEventListener('submit', async e => {
   e.preventDefault();
   const projectId = formInvitar.invitarProjectId.value;
   const firstName = formInvitar.invitarFirstName.value.trim();
@@ -217,7 +230,7 @@ formInvitar.onsubmit = async e => {
   modalInvitar.classList.add('hidden');
   toast("Miembro agregado", "#22C55E");
   cargarProyectos(owner);
-};
+});
 
 // Cargar perfil
 async function cargarPerfil(uid) {
@@ -234,6 +247,6 @@ async function cargarPerfil(uid) {
   html += `</ul></div>`;
 
   perfilContenido.innerHTML = html;
-  btnPerfil.onclick = () => modalPerfil.classList.remove('hidden');
-  btnCerrarPerfil.onclick = () => modalPerfil.classList.add('hidden');
+  btnPerfil.onclick      = () => modalPerfil.classList.remove('hidden');
+  btnCerrarPerfil.onclick= () => modalPerfil.classList.add('hidden');
 }

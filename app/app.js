@@ -9,24 +9,20 @@ const firebaseConfig = {
   messagingSenderId: "115735342206",
   appId: "1:115735342206:web:1ff5368de61190dac53c2f"
 };
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
 // ===== Leer projectId de la URL =====
-const urlParams  = new URLSearchParams(window.location.search);
-const projectId  = urlParams.get('projectId');
-if (!projectId) {
-  console.error('No se proporcionó projectId en la URL');
-  window.location.href = 'projects.html';
-}
+const urlParams          = new URLSearchParams(window.location.search);
+const projectId          = urlParams.get('projectId');
+if (!projectId) window.location.href = 'projects.html';
 
 // ===== DOM refs =====
 const btnNueva      = document.getElementById('btnNuevaTarea');
 const btnBack       = document.getElementById('btnBack');
 const btnLogout     = document.getElementById('btnLogout');
+const projectNameDisplay = document.getElementById('projectNameDisplay');
 const modal         = document.getElementById('modal-task');
 const btnCerrar     = document.getElementById('cerrarModal');
 const form          = document.getElementById('formTarea');
@@ -51,13 +47,21 @@ function toast(msg, bg = "#3B82F6") {
 }
 
 // ===== Autenticación =====
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async user => {
   if (!user) {
     window.location.href = 'login.html';
-  } else {
-    cargarMiembrosProyecto();
-    cargarTareasRealtime();
+    return;
   }
+  // Cargar nombre del proyecto
+  try {
+    const doc = await db.collection('projects').doc(projectId).get();
+    if (doc.exists) projectNameDisplay.textContent = doc.data().name;
+  } catch (err) {
+    console.error('Error cargando nombre de proyecto', err);
+  }
+  // Cargar miembros y tareas
+  await cargarMiembrosProyecto();
+  cargarTareasRealtime();
 });
 
 // ===== Navegación y logout =====
@@ -76,7 +80,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') cerrarModal();
 });
 
-// ===== Drag & Drop con SortableJS =====
+// ===== Drag & Drop =====
 ['todo','inprogress','paused','done'].forEach(id => {
   new Sortable(document.getElementById(id), {
     group: 'kanban',
@@ -85,8 +89,7 @@ window.addEventListener('keydown', e => {
       const docId    = evt.item.dataset.id;
       const newStatus = idColumnaAEstado(evt.to.id);
       db.collection('projects').doc(projectId)
-        .collection('tasks').doc(docId)
-        .update({ status: newStatus });
+        .collection('tasks').doc(docId).update({ status: newStatus });
     }
   });
 });
@@ -112,8 +115,7 @@ form.addEventListener('submit', async e => {
 
   try {
     await db.collection('projects').doc(projectId)
-      .collection('tasks').doc(id)
-      .set(data, { merge: true });
+      .collection('tasks').doc(id).set(data, { merge: true });
     toast('Tarea guardada', '#22C55E');
     cerrarModal();
   } catch (err) {
@@ -145,7 +147,7 @@ async function cargarMiembrosProyecto() {
 
   membersMap = {};
   snap.docs.forEach(d => {
-    const m = d.data();
+    const m    = d.data();
     const name = m.displayName || '';
     membersMap[d.id] = name;
     if (name) {
@@ -160,8 +162,7 @@ async function cargarMiembrosProyecto() {
 // ===== Cargar tareas en tiempo real =====
 function cargarTareasRealtime() {
   db.collection('projects').doc(projectId)
-    .collection('tasks')
-    .onSnapshot(snap => {
+    .collection('tasks').onSnapshot(snap => {
       const tareas = snap.docs.map(d => {
         const data = d.data();
         return {
@@ -177,14 +178,14 @@ function cargarTareasRealtime() {
     });
 }
 
-// ===== Render de tareas =====
+// ===== Render de tareas (sin fondo gris, muestra asignado) =====
 function renderTareas(tareas) {
   ['todo','inprogress','paused','done'].forEach(id => {
     document.getElementById(id).innerHTML = '';
   });
   tareas.forEach(t => {
     const card = document.createElement('div');
-    card.className = 'bg-gray-200 rounded p-2 mb-2 shadow cursor-pointer';
+    card.className = 'rounded p-2 mb-2 shadow cursor-pointer';
     card.dataset.id = t.id;
     card.innerHTML = `
       <div class="flex justify-between items-center mb-1">
@@ -243,7 +244,7 @@ function cerrarModal() {
   }
 }
 
-// ===== Mapear estado <-> columna =====
+// ===== Mapear estado ↔ columna =====
 function idColumnaAId(status) {
   switch(status) {
     case 'a-realizar': return 'todo';
