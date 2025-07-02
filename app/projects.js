@@ -122,7 +122,7 @@ async function renderProyecto(projectId, p) {
   header.className = 'flex justify-between items-center';
   header.innerHTML = `
     <div class="project-title flex items-center gap-2 hover:text-blue-600 cursor-pointer">
-      <i class="fas fa-chart-bar"></i>
+      <i class="fa-solid fa-diagram-project"></i>
       <span class="font-semibold">${p.name}</span>
     </div>
     <div class="flex gap-2">
