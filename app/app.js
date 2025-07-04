@@ -228,7 +228,6 @@ function abrirModalNueva() {
   form.tareaId.value = '';
   btnEliminar.classList.add('hidden');
   modal.classList.remove('hidden');
-  cargarMiembrosProyecto(); // ✅ aquí sí
 }
 
 function abrirModalEditarTarea(tarea) {
@@ -244,7 +243,6 @@ function abrirModalEditarTarea(tarea) {
   form.estado.value = tarea.status;
   btnEliminar.classList.remove('hidden');
   modal.classList.remove('hidden');
-  cargarMiembrosProyecto(); // ✅ también aquí para edición
 }
 
 function cerrarModal() {
