@@ -1,181 +1,120 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Agilify - Board</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <!-- TailwindCSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-  <!-- SortableJS -->
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-
-  <!-- Estilos Skeleton -->
-  <style>
-    .skeleton {
-      background: linear-gradient(-90deg, #e0e0e0 0%, #f8f8f8 50%, #e0e0e0 100%);
-      background-size: 400% 400%;
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0% { background-position: 100% 0%; }
-      100% { background-position: -100% 0%; }
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Agilify - Board</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" />
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </head>
 
 <body class="bg-gray-100 flex flex-col min-h-screen">
 
-  <!-- Header -->
-  <div class="flex items-center justify-between p-4 bg-white shadow">
-    <h1 class="text-2xl font-bold">Agilify</h1>
-    <div class="flex gap-2">
-      <button id="btnNuevaTarea" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-        <i class="fas fa-plus"></i> Nueva tarea
-      </button>
-      <button id="btnBack" class="flex items-center px-4 py-2 text-black hover:text-gray-700">
-        <i class="fa-solid fa-diagram-project"></i>
-      </button>
-      <button id="btnLogout" class="flex items-center px-4 py-2 text-black hover:text-gray-700">
-        <i class="fas fa-sign-out-alt"></i>
-      </button>
-    </div>
+<header class="flex items-center justify-between p-4 bg-white shadow">
+  <h1 class="text-2xl font-bold">Agilify</h1>
+  <div class="flex gap-2">
+    <button id="btnNuevaTarea" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+      <i class="fas fa-plus"></i> Nueva Tarea
+    </button>
+    <button id="btnBack" class="px-4 py-2 text-black hover:text-gray-700">
+      <i class="fa-solid fa-diagram-project"></i>
+    </button>
+    <button id="btnPerfil" class="px-4 py-2 text-black hover:text-gray-700">
+      <i class="fas fa-user"></i>
+    </button>
+    <button id="btnLogout" class="px-4 py-2 text-black hover:text-gray-700">
+      <i class="fas fa-sign-out-alt"></i>
+    </button>
   </div>
+</header>
 
-  <!-- Nombre del Proyecto -->
-  <div class="mt-4 px-6">
-    <h2 id="projectName" class="text-xl font-semibold text-gray-700"></h2>
+<div class="mt-4 px-6">
+  <h2 id="projectName" class="text-xl font-semibold text-gray-700"></h2>
+</div>
+
+<main class="flex flex-col md:flex-row gap-4 p-4 flex-1 overflow-auto">
+  <div id="todo" class="w-full md:flex-1 bg-white rounded p-2">
+    <h2 class="text-lg font-bold mb-2 text-center">A Realizar</h2>
+    <div class="tareas space-y-2"></div>
   </div>
-
-  <!-- Kanban Columns con efecto Skeleton -->
-  <div id="kanbanColumns" class="flex flex-col md:flex-row gap-4 p-4 flex-1 overflow-auto">
-    <!-- Columnas Skeleton iniciales -->
-    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2">
-      <h2 class="text-lg font-bold mb-2 text-center">A Realizar</h2>
-      <div class="space-y-2">
-        <div class="skeleton h-12 rounded"></div>
-        <div class="skeleton h-12 rounded"></div>
-        <div class="skeleton h-12 rounded"></div>
-      </div>
-    </div>
-    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2">
-      <h2 class="text-lg font-bold mb-2 text-center">En Proceso</h2>
-      <div class="space-y-2">
-        <div class="skeleton h-12 rounded"></div>
-        <div class="skeleton h-12 rounded"></div>
-      </div>
-    </div>
-    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2">
-      <h2 class="text-lg font-bold mb-2 text-center">Pausado</h2>
-      <div class="space-y-2">
-        <div class="skeleton h-12 rounded"></div>
-      </div>
-    </div>
-    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2">
-      <h2 class="text-lg font-bold mb-2 text-center">Realizado</h2>
-      <div class="space-y-2">
-        <div class="skeleton h-12 rounded"></div>
-        <div class="skeleton h-12 rounded"></div>
-      </div>
-    </div>
+  <div id="inprogress" class="w-full md:flex-1 bg-white rounded p-2">
+    <h2 class="text-lg font-bold mb-2 text-center">En Proceso</h2>
+    <div class="tareas space-y-2"></div>
   </div>
+  <div id="paused" class="w-full md:flex-1 bg-white rounded p-2">
+    <h2 class="text-lg font-bold mb-2 text-center">Pausado</h2>
+    <div class="tareas space-y-2"></div>
+  </div>
+  <div id="done" class="w-full md:flex-1 bg-white rounded p-2">
+    <h2 class="text-lg font-bold mb-2 text-center">Realizado</h2>
+    <div class="tareas space-y-2"></div>
+  </div>
+</main>
 
-  <!-- Modal Tarea -->
-  <div id="modal-task" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
-    <div class="bg-white p-6 rounded-lg max-w-xl w-full relative shadow-xl">
-      <button id="cerrarModal" class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
-      <form id="formTarea" class="space-y-4">
-
-        <input type="hidden" id="tareaId">
-
-        <div>
-          <label class="block font-semibold">Título</label>
-          <input id="titulo" type="text" required class="w-full border rounded px-2 py-1">
-        </div>
-
-        <div>
-          <label class="block font-semibold">Descripción</label>
-          <textarea id="descripcion" rows="3" class="w-full border rounded px-2 py-1"></textarea>
-        </div>
-
-        <div>
-          <label class="block font-semibold">Links (coma separados)</label>
-          <input id="links" type="text" placeholder="https://..." class="w-full border rounded px-2 py-1">
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block font-semibold">Prioridad</label>
-            <select id="prioridad" class="w-full border rounded px-2 py-1">
-              <option value="baja">Baja</option>
-              <option value="media">Media</option>
-              <option value="alta">Alta</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-semibold">Fecha límite</label>
-            <input id="fecha" type="date" class="w-full border rounded px-2 py-1">
-          </div>
-        </div>
-
-        <div>
-          <label class="block font-semibold">Asignar a</label>
-          <select id="asignadoA" class="w-full border rounded px-2 py-1">
-            <option value="">-- No asignado --</option>
+<!-- Modal Tarea -->
+<div id="modal-task" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+  <div class="bg-white p-6 rounded-lg max-w-xl w-full relative shadow-xl">
+    <button id="cerrarModal" class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
+    <form id="formTarea" class="space-y-4">
+      <input type="hidden" id="tareaId">
+      <div><label class="block font-semibold">Título</label>
+        <input id="titulo" type="text" required class="w-full border rounded px-2 py-1">
+      </div>
+      <div><label class="block font-semibold">Descripción</label>
+        <textarea id="descripcion" rows="3" class="w-full border rounded px-2 py-1"></textarea>
+      </div>
+      <div><label class="block font-semibold">Links</label>
+        <input id="links" type="text" class="w-full border rounded px-2 py-1">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block font-semibold">Prioridad</label>
+          <select id="prioridad" class="w-full border rounded px-2 py-1">
+            <option value="baja">Baja</option>
+            <option value="media">Media</option>
+            <option value="alta">Alta</option>
           </select>
         </div>
-
-        <div>
-          <label class="block font-semibold">Estado</label>
-          <select id="estado" class="w-full border rounded px-2 py-1">
-            <option value="a-realizar">A Realizar</option>
-            <option value="en-proceso">En Proceso</option>
-            <option value="pausado">Pausado</option>
-            <option value="realizado">Realizado</option>
-          </select>
+        <div><label class="block font-semibold">Fecha límite</label>
+          <input id="fecha" type="date" class="w-full border rounded px-2 py-1">
         </div>
-
-        <div class="flex gap-2">
-          <button type="submit" class="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-            <i class="fas fa-save"></i> Guardar
-          </button>
-          <button type="button" id="btnEliminar" class="flex-1 flex items-center justify-center gap-2 bg-red-600 text-white py-2 rounded hover:bg-red-700">
-            <i class="fas fa-trash"></i> Eliminar
-          </button>
-        </div>
-
-      </form>
-    </div>
+      </div>
+      <div><label class="block font-semibold">Asignar a</label>
+        <select id="asignadoA" class="w-full border rounded px-2 py-1">
+          <option value="">-- No asignado --</option>
+        </select>
+      </div>
+      <div><label class="block font-semibold">Estado</label>
+        <select id="estado" class="w-full border rounded px-2 py-1">
+          <option value="a-realizar">A Realizar</option>
+          <option value="en-proceso">En Proceso</option>
+          <option value="pausado">Pausado</option>
+          <option value="realizado">Realizado</option>
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Guardar</button>
+        <button type="button" id="btnEliminar" class="flex-1 bg-red-600 text-white py-2 rounded hover:bg-red-700">Eliminar</button>
+      </div>
+    </form>
   </div>
+</div>
 
-  <script src="app/app.js"></script>
+<!-- Modal Perfil -->
+<div id="modal-perfil" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+  <div class="bg-white p-6 rounded max-w-md w-full relative shadow-lg">
+    <button id="cerrarModalPerfil" class="absolute right-3 top-3 text-xl text-gray-500 hover:text-gray-800">&times;</button>
+    <h2 class="text-xl font-bold mb-4 text-center">Perfil de Usuario</h2>
+    <div id="perfilContenido" class="space-y-2"></div>
+  </div>
+</div>
 
-  <!-- Script carga nombre del proyecto -->
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const projectId = urlParams.get('projectId');
-    const db = firebase.firestore();
-
-    if (projectId) {
-      db.collection('projects').doc(projectId).get()
-        .then(doc => {
-          if (doc.exists) {
-            document.getElementById('projectName').textContent = doc.data().name;
-          } else {
-            document.getElementById('projectName').textContent = "Proyecto no encontrado";
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          document.getElementById('projectName').textContent = "Error al cargar nombre";
-        });
-    }
-  </script>
+<script src="app/app.js"></script>
 </body>
 </html>
