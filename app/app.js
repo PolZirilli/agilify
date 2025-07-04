@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
         db.collection('projects').doc(projectId)
           .collection('tasks').doc(docId)
           .update({ status: newStatus });
-        // No manipular el DOM aquí para evitar duplicados
       }
     });
   });
@@ -279,8 +278,10 @@ function mostrarPerfilUsuario() {
     if (!user) return;
 
     const contenido = document.getElementById('perfilContenido');
+    const nombreMostrado = user.displayName || '—';
+
     contenido.innerHTML = `
-      <p><strong>Nombre:</strong> ${user.displayName || '—'}</p>
+      <p><strong>Nombre:</strong> ${nombreMostrado}</p>
       <p><strong>Email:</strong> ${user.email}</p>
       <div><strong>Proyectos asignados:</strong></div>
       <ul id="listaProyectos" class="list-disc list-inside text-sm mt-1"><li class="text-gray-500">Cargando…</li></ul>
@@ -294,7 +295,7 @@ function mostrarPerfilUsuario() {
         lista.innerHTML = '';
         snap.forEach(doc => {
           const li = document.createElement('li');
-          li.textContent = doc.data().name;
+          li.textContent = doc.data().name || doc.id;
           lista.appendChild(li);
         });
         if (!lista.hasChildNodes()) {
