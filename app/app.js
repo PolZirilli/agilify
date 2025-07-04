@@ -133,6 +133,7 @@ function abrirModalNueva() {
 }
 
 function abrirModalEditarTarea(tarea) {
+  form.reset();
   form.tareaId.value = tarea.id;
   form.titulo.value = tarea.title;
   form.descripcion.value = tarea.description || '';
@@ -141,11 +142,16 @@ function abrirModalEditarTarea(tarea) {
   form.fecha.value = tarea.dueDate
     ? new Date(tarea.dueDate.seconds * 1000).toISOString().split('T')[0]
     : '';
-  form.asignadoA.value = tarea.assignedTo || '';
   form.estado.value = tarea.status;
+
   btnEliminar.classList.remove('hidden');
   modal.classList.remove('hidden');
+
   cargarMiembrosProyecto();
+
+  setTimeout(() => {
+    form.asignadoA.value = tarea.assignedTo || '';
+  }, 300);
 }
 
 function cerrarModal() {
@@ -242,9 +248,9 @@ function mostrarPerfilUsuario() {
 
     const contenido = document.getElementById('perfilContenido');
     contenido.innerHTML = `
+      <p><strong>Nombre:</strong> ${user.displayName || '(sin nombre)'}</p>
       <p><strong>Email:</strong> ${user.email}</p>
-      <p><strong>UID:</strong> ${user.uid}</p>
-      <div><strong>Proyectos asignados:</strong></div>
+      <div><strong>Proyectos:</strong></div>
       <ul id="listaProyectos" class="list-disc list-inside text-sm mt-1"><li class="text-gray-500">Cargando…</li></ul>
     `;
 
