@@ -2,9 +2,10 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Asignar usuario a proyecto</title>
+<title>Asignar usuario a proyecto por Email y Nombre</title>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 </head>
 <body>
 <h1>Asignar usuario a proyecto</h1>
@@ -22,6 +23,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 
 const logDiv = document.getElementById("log");
 
@@ -30,33 +32,71 @@ function log(msg) {
   logDiv.innerHTML += `<p>${msg}</p>`;
 }
 
-(async () => {
-  const uid = prompt("UID del usuario:");
-  const projectId = prompt("ID del proyecto:");
-
-  if (!uid || !projectId) {
-    log("❌ UID o ProjectID faltantes");
-    return;
-  }
-
-  const projectRef = db.collection('projects').doc(projectId);
-
+async function asignarUsuarioAProyecto(email, projectName) {
   try {
-    const doc = await projectRef.get();
-    if (!doc.exists) {
-      log(`❌ El proyecto ${projectId} no existe`);
+    // Buscar UID por email en Auth
+    const methods = await auth.fetchSignInMethodsForEmail(email);
+    if (methods.length === 0) {
+      log(`❌ El usuario con email ${email} no existe en Auth`);
       return;
     }
 
-    await projectRef.update({
+    const usersSnapshot = await db.collectionGroup('members')
+      .where('email', '==', email)
+      .get();
+
+    let uid = null;
+    if (!usersSnapshot.empty) {
+      uid = usersSnapshot.docs[0].id;
+      log(`✅ UID obtenido de Firestore members: ${uid}`);
+    } else {
+      log(`⚠️ No encontrado en members, usando auth para UID…`);
+      const userByEmail = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseConfig.apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email })
+      }).then(res => res.json());
+
+      if (userByEmail.users && userByEmail.users.length > 0) {
+        uid = userByEmail.users[0].localId;
+        log(`✅ UID obtenido de Auth: ${uid}`);
+      } else {
+        log(`❌ No se pudo obtener UID para ${email}`);
+        return;
+      }
+    }
+
+    // Buscar ID del proyecto por nombre
+    const proyectos = await db.collection('projects').where('name', '==', projectName).get();
+    if (proyectos.empty) {
+      log(`❌ Proyecto con nombre ${projectName} no encontrado`);
+      return;
+    }
+
+    const projectDoc = proyectos.docs[0];
+    const projectId = projectDoc.id;
+
+    await db.collection('projects').doc(projectId).update({
       [`members.${uid}`]: true
     });
 
-    log(`✅ Usuario ${uid} asignado al proyecto ${projectId}`);
+    log(`✅ Usuario ${email} asignado al proyecto ${projectName}`);
   } catch (err) {
     console.error(err);
     log(`❌ Error: ${err.message}`);
   }
+}
+
+(async () => {
+  const email = prompt("Email del usuario:");
+  const projectName = prompt("Nombre del proyecto:");
+
+  if (!email || !projectName) {
+    log("❌ Email o Nombre de Proyecto faltantes");
+    return;
+  }
+
+  await asignarUsuarioAProyecto(email, projectName);
 })();
 </script>
 </body>
