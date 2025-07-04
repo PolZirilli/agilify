@@ -23,6 +23,47 @@ if (!projectId) {
   window.location.href = 'projects.html';
 }
 
+// ======= Helpers =======
+async function cargarMiembrosProyecto() {
+  const select = document.getElementById('asignadoA');
+  if (!select) return;
+  select.innerHTML = '<option value="">-- No asignado --</option>';
+
+  const membres = await db.collection('projects').doc(projectId).collection('members').get();
+  membres.forEach(mdoc => {
+    const m = mdoc.data();
+    if (!m.displayName) return;
+    const opt = document.createElement('option');
+    opt.value = mdoc.id;
+    opt.textContent = m.displayName;
+    select.appendChild(opt);
+  });
+}
+
+function cargarNombreProyecto() {
+  db.collection('projects').doc(projectId).get()
+    .then(doc => {
+      if (doc.exists) {
+        document.getElementById('projectName').textContent = doc.data().name;
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('projectName').textContent = "Error al cargar proyecto";
+    });
+}
+
+function cargarTareasRealtime() {
+  mostrarSkeleton();
+  db.collection('projects').doc(projectId)
+    .collection('tasks')
+    .onSnapshot(snap => {
+      const tareas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderTareas(tareas);
+      ocultarSkeleton();
+    });
+}
+
 // ======= Control de autenticación =======
 auth.onAuthStateChanged(user => {
   if (!user) {
@@ -35,7 +76,6 @@ auth.onAuthStateChanged(user => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  // ======= Referencias al DOM =======
   const btnNueva = document.getElementById('btnNuevaTarea');
   const btnBack = document.getElementById('btnBack');
   const btnLogout = document.getElementById('btnLogout');
@@ -56,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.onclick = e => { if (e.target === modal) cerrarModal(); };
   window.onkeydown = e => { if (e.key === 'Escape') cerrarModal(); };
 
-  // ======= Drag & Drop =======
   ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
     new Sortable(document.querySelector(`#${id} .tareas`), {
       group: 'kanban',
@@ -71,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ======= Guardar/actualizar tarea =======
   form.onsubmit = e => {
     e.preventDefault();
     const id = form.tareaId.value || db.collection('projects').doc(projectId).collection('tasks').doc().id;
@@ -100,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cerrarModal();
   };
 
-  // ======= Eliminar tarea =======
   btnEliminar.onclick = () => {
     const id = form.tareaId.value;
     if (!id) return;
@@ -179,19 +216,7 @@ async function renderTareas(tareas) {
   }
 }
 
-// ======= Cargar tareas realtime =======
-function cargarTareasRealtime() {
-  mostrarSkeleton();
-  db.collection('projects').doc(projectId)
-    .collection('tasks')
-    .onSnapshot(snap => {
-      const tareas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderTareas(tareas);
-      ocultarSkeleton();
-    });
-}
-
-// ======= Modal handlers =======
+// ======= Modal =======
 function abrirModalNueva() {
   form.reset();
   form.tareaId.value = '';
@@ -218,7 +243,7 @@ function cerrarModal() {
   modal.classList.add('hidden');
 }
 
-// ======= Helpers =======
+// ======= Conversión estado/columna =======
 function idColumnaAId(status) {
   return {
     'a-realizar': 'todo',
@@ -237,37 +262,7 @@ function idColumnaAEstado(id) {
   }[id] || 'a-realizar';
 }
 
-// ======= Cargar miembros proyecto =======
-async function cargarMiembrosProyecto() {
-  const select = document.getElementById('asignadoA');
-  select.innerHTML = '<option value="">-- No asignado --</option>';
-
-  const membres = await db.collection('projects').doc(projectId).collection('members').get();
-  membres.forEach(mdoc => {
-    const m = mdoc.data();
-    if (!m.displayName) return;
-    const opt = document.createElement('option');
-    opt.value = mdoc.id;
-    opt.textContent = m.displayName;
-    select.appendChild(opt);
-  });
-}
-
-// ======= Cargar nombre proyecto =======
-function cargarNombreProyecto() {
-  db.collection('projects').doc(projectId).get()
-    .then(doc => {
-      if (doc.exists) {
-        document.getElementById('projectName').textContent = doc.data().name;
-      }
-    })
-    .catch(err => {
-      console.error(err);
-      document.getElementById('projectName').textContent = "Error al cargar proyecto";
-    });
-}
-
-// ======= Mostrar perfil usuario =======
+// ======= Modal perfil =======
 function mostrarPerfilUsuario() {
   auth.onAuthStateChanged(user => {
     if (!user) return;
