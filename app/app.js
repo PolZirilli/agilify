@@ -23,23 +23,25 @@ if (!projectId) {
   window.location.href = 'projects.html';
 }
 
-// ======= Helpers =======
-async function cargarMiembrosProyecto() {
+// ======= Declaraciones clave =======
+function cargarMiembrosProyecto() {
   const select = document.getElementById('asignadoA');
   if (!select) return;
 
   select.innerHTML = '<option value="">-- No asignado --</option>';
 
-  const miembrosRef = db.collection('projects').doc(projectId).collection('members');
-  const snapshot = await miembrosRef.get();
-
-  snapshot.forEach(doc => {
-    const miembro = doc.data();
-    const option = document.createElement('option');
-    option.value = doc.id;
-    option.textContent = miembro.displayName || miembro.email || doc.id;
-    select.appendChild(option);
-  });
+  db.collection('projects').doc(projectId).collection('members')
+    .get()
+    .then(snapshot => {
+      snapshot.forEach(doc => {
+        const miembro = doc.data();
+        const option = document.createElement('option');
+        option.value = doc.id;
+        option.textContent = miembro.displayName || miembro.email || doc.id;
+        select.appendChild(option);
+      });
+    })
+    .catch(err => console.error('Error al cargar miembros:', err));
 }
 
 function cargarNombreProyecto() {
