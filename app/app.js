@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnBack = document.getElementById('btnBack');
   const btnLogout = document.getElementById('btnLogout');
   const btnPerfil = document.getElementById('btnPerfil');
+  const btnCerrarModalPerfil = document.getElementById('cerrarModalPerfil');
   const modal = document.getElementById('modal-task');
   const btnCerrar = document.getElementById('cerrarModal');
   const form = document.getElementById('formTarea');
@@ -48,9 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
   btnBack.onclick = () => window.location.href = 'projects.html';
   btnLogout.onclick = () => auth.signOut();
   btnPerfil.onclick = mostrarPerfilUsuario;
+  btnCerrarModalPerfil.onclick = () => document.getElementById('modal-perfil').classList.add('hidden');
 
   btnNueva.onclick = abrirModalNueva;
-  btnCerrar.onclick = cerrarModal;
+  btnCerrar && (btnCerrar.onclick = cerrarModal);
   window.onclick = e => { if (e.target === modal) cerrarModal(); };
   window.onkeydown = e => { if (e.key === 'Escape') cerrarModal(); };
 
@@ -123,18 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 });
 
-// ======= Cargar tareas en tiempo real =======
-function cargarTareasRealtime() {
-  mostrarSkeleton();
-  db.collection('projects').doc(projectId)
-    .collection('tasks')
-    .onSnapshot(snap => {
-      const tareas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderTareas(tareas);
-      ocultarSkeleton();
-    });
-}
-
 // ======= Skeleton =======
 function mostrarSkeleton() {
   ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
@@ -154,7 +144,7 @@ function ocultarSkeleton() {
   });
 }
 
-// ======= Renderizar tarjetas Kanban =======
+// ======= Renderizar tareas =======
 async function renderTareas(tareas) {
   ocultarSkeleton();
   for (const id of ['todo', 'inprogress', 'paused', 'done']) {
@@ -187,6 +177,18 @@ async function renderTareas(tareas) {
     document.querySelector(`#${idColumnaAId(t.status)} .tareas`).appendChild(card);
     card.onclick = () => abrirModalEditarTarea(t);
   }
+}
+
+// ======= Cargar tareas realtime =======
+function cargarTareasRealtime() {
+  mostrarSkeleton();
+  db.collection('projects').doc(projectId)
+    .collection('tasks')
+    .onSnapshot(snap => {
+      const tareas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderTareas(tareas);
+      ocultarSkeleton();
+    });
 }
 
 // ======= Modal handlers =======
@@ -235,7 +237,7 @@ function idColumnaAEstado(id) {
   }[id] || 'a-realizar';
 }
 
-// ======= Cargar miembros =======
+// ======= Cargar miembros proyecto =======
 async function cargarMiembrosProyecto() {
   const select = document.getElementById('asignadoA');
   select.innerHTML = '<option value="">-- No asignado --</option>';
@@ -251,7 +253,7 @@ async function cargarMiembrosProyecto() {
   });
 }
 
-// ======= Cargar nombre del proyecto =======
+// ======= Cargar nombre proyecto =======
 function cargarNombreProyecto() {
   db.collection('projects').doc(projectId).get()
     .then(doc => {
@@ -269,31 +271,31 @@ function cargarNombreProyecto() {
 function mostrarPerfilUsuario() {
   auth.onAuthStateChanged(user => {
     if (!user) return;
-    Swal.fire({
-      title: `Perfil de ${user.displayName || user.email}`,
-      html: `
-        <p><strong>Email:</strong> ${user.email}</p>
-        <p><strong>UID:</strong> ${user.uid}</p>
-        <hr>
-        <p><strong>Proyectos asignados:</strong></p>
-        <ul id="listaProyectos">Cargando…</ul>
-      `,
-      showCloseButton: true,
-      showConfirmButton: false
-    });
+
+    const contenido = document.getElementById('perfilContenido');
+    contenido.innerHTML = `
+      <p><strong>Email:</strong> ${user.email}</p>
+      <p><strong>UID:</strong> ${user.uid}</p>
+      <div><strong>Proyectos asignados:</strong></div>
+      <ul id="listaProyectos" class="list-disc list-inside text-sm mt-1"><li class="text-gray-500">Cargando…</li></ul>
+    `;
+
+    document.getElementById('modal-perfil').classList.remove('hidden');
 
     db.collection('projects')
       .where(`members.${user.uid}`, '==', true)
       .get()
       .then(snap => {
-        const lista = document.querySelector('#listaProyectos');
+        const lista = document.getElementById('listaProyectos');
         lista.innerHTML = '';
         snap.forEach(doc => {
           const li = document.createElement('li');
           li.textContent = doc.data().name;
           lista.appendChild(li);
         });
-        if (lista.innerHTML === '') lista.innerHTML = '<li>Ninguno</li>';
+        if (!lista.hasChildNodes()) {
+          lista.innerHTML = '<li class="text-gray-500">Ninguno</li>';
+        }
       });
   });
 }
