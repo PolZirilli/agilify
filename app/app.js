@@ -83,9 +83,12 @@ form.onsubmit = e => {
       : null,
     status: form.estado.value,
     assignedTo: form.asignadoA.value || null,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
+
+  if (!form.tareaId.value) {
+    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+  }
 
   db.collection('projects').doc(projectId)
     .collection('tasks').doc(id)
@@ -218,7 +221,7 @@ function idColumnaAId(status) {
     'en-proceso': 'inprogress',
     'pausado': 'paused',
     'realizado': 'done'
-  }[status];
+  }[status] || 'todo';
 }
 
 function idColumnaAEstado(id) {
@@ -227,7 +230,7 @@ function idColumnaAEstado(id) {
     'inprogress': 'en-proceso',
     'paused': 'pausado',
     'done': 'realizado'
-  }[id];
+  }[id] || 'a-realizar';
 }
 
 // ======= Cargar miembros =======
