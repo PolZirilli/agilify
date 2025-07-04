@@ -21,6 +21,11 @@ if (!projectId) {
   window.location.href = 'projects.html';
 }
 
+// ======= Variables globales =======
+const modal = document.getElementById('modal-task');
+const form = document.getElementById('formTarea');
+const btnEliminar = document.getElementById('btnEliminar');
+
 auth.onAuthStateChanged(user => {
   if (!user) {
     window.location.href = 'login.html';
@@ -36,9 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnLogout = document.getElementById('btnLogout');
   const btnPerfil = document.getElementById('btnPerfil');
   const btnCerrarModalPerfil = document.getElementById('cerrarModalPerfil');
-  const modal = document.getElementById('modal-task');
-  const form = document.getElementById('formTarea');
-  const btnEliminar = document.getElementById('btnEliminar');
 
   btnBack.onclick = () => window.location.href = 'projects.html';
   btnLogout.onclick = () => auth.signOut();
