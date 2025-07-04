@@ -14,20 +14,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-
-  <!-- Estilos Skeleton -->
-  <style>
-    .skeleton {
-      background: linear-gradient(-90deg, #e0e0e0 0%, #f8f8f8 50%, #e0e0e0 100%);
-      background-size: 400% 400%;
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0% { background-position: 100% 0%; }
-      100% { background-position: -100% 0%; }
-    }
-  </style>
 </head>
 
 <body class="bg-gray-100 flex flex-col min-h-screen">
@@ -53,36 +39,19 @@
     <h2 id="projectName" class="text-xl font-semibold text-gray-700"></h2>
   </div>
 
-  <!-- Kanban Columns con efecto Skeleton -->
+  <!-- Kanban Columns -->
   <div id="kanbanColumns" class="flex flex-col md:flex-row gap-4 p-4 flex-1 overflow-auto">
-    <!-- Columnas Skeleton iniciales -->
-    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2">
+    <div id="todo" class="kanban-column w-full md:flex-1 bg-white rounded p-2">
       <h2 class="text-lg font-bold mb-2 text-center">A Realizar</h2>
-      <div class="space-y-2">
-        <div class="skeleton h-12 rounded"></div>
-        <div class="skeleton h-12 rounded"></div>
-        <div class="skeleton h-12 rounded"></div>
-      </div>
     </div>
-    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2">
+    <div id="inprogress" class="kanban-column w-full md:flex-1 bg-white rounded p-2">
       <h2 class="text-lg font-bold mb-2 text-center">En Proceso</h2>
-      <div class="space-y-2">
-        <div class="skeleton h-12 rounded"></div>
-        <div class="skeleton h-12 rounded"></div>
-      </div>
     </div>
-    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2">
+    <div id="paused" class="kanban-column w-full md:flex-1 bg-white rounded p-2">
       <h2 class="text-lg font-bold mb-2 text-center">Pausado</h2>
-      <div class="space-y-2">
-        <div class="skeleton h-12 rounded"></div>
-      </div>
     </div>
-    <div class="kanban-column w-full md:flex-1 bg-white rounded p-2">
+    <div id="done" class="kanban-column w-full md:flex-1 bg-white rounded p-2">
       <h2 class="text-lg font-bold mb-2 text-center">Realizado</h2>
-      <div class="space-y-2">
-        <div class="skeleton h-12 rounded"></div>
-        <div class="skeleton h-12 rounded"></div>
-      </div>
     </div>
   </div>
 
@@ -134,10 +103,10 @@
         <div>
           <label class="block font-semibold">Estado</label>
           <select id="estado" class="w-full border rounded px-2 py-1">
-            <option value="a-realizar">A Realizar</option>
-            <option value="en-proceso">En Proceso</option>
-            <option value="pausado">Pausado</option>
-            <option value="realizado">Realizado</option>
+            <option value="todo">A Realizar</option>
+            <option value="inprogress">En Proceso</option>
+            <option value="paused">Pausado</option>
+            <option value="done">Realizado</option>
           </select>
         </div>
 
@@ -155,27 +124,5 @@
   </div>
 
   <script src="app/app.js"></script>
-
-  <!-- Script carga nombre del proyecto -->
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const projectId = urlParams.get('projectId');
-    const db = firebase.firestore();
-
-    if (projectId) {
-      db.collection('projects').doc(projectId).get()
-        .then(doc => {
-          if (doc.exists) {
-            document.getElementById('projectName').textContent = doc.data().name;
-          } else {
-            document.getElementById('projectName').textContent = "Proyecto no encontrado";
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          document.getElementById('projectName').textContent = "Error al cargar nombre";
-        });
-    }
-  </script>
 </body>
 </html>
