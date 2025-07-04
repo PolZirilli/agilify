@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Actualizar displayName en Firebase Auth</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<h1>Actualizando usuarios…</h1>
+<div id="log"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDTuzGWaKLFzjHPfpVSQDzkSZeIA-Nv-4s",
+  authDomain: "agilify-c9abf.firebaseapp.com",
+  projectId: "agilify-c9abf",
+  storageBucket: "agilify-c9abf.firebasestorage.app",
+  messagingSenderId: "115735342206",
+  appId: "1:115735342206:web:1ff5368de61190dac53c2f"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const logDiv = document.getElementById("log");
+
+function log(msg) {
+  console.log(msg);
+  logDiv.innerHTML += `<p>${msg}</p>`;
+}
+
+// 🚨 NOTA: no podés listar usuarios desde el cliente, solo desde el Admin SDK en servidor.
+// Esto solo actualiza el usuario logueado.
+
+auth.signInWithEmailAndPassword(prompt("Email"), prompt("Password"))
+  .then(userCredential => {
+    const user = userCredential.user;
+    const nuevoNombre = prompt("Nuevo nombre para este usuario:", "Nombre Ejemplo");
+
+    return user.updateProfile({
+      displayName: nuevoNombre
+    }).then(() => {
+      log(`✅ Nombre actualizado a: ${nuevoNombre}`);
+    });
+  })
+  .catch(err => {
+    log(`❌ Error: ${err.message}`);
+  });
+</script>
+</body>
+</html>
