@@ -34,94 +34,94 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// ======= Referencias al DOM =======
-const btnNueva = document.getElementById('btnNuevaTarea');
-const btnBack = document.getElementById('btnBack');
-const btnLogout = document.getElementById('btnLogout');
-const btnPerfil = document.getElementById('btnPerfil');
-const modal = document.getElementById('modal-task');
-const btnCerrar = document.getElementById('cerrarModal');
-const form = document.getElementById('formTarea');
-const btnEliminar = document.getElementById('btnEliminar');
+document.addEventListener('DOMContentLoaded', () => {
+  // ======= Referencias al DOM =======
+  const btnNueva = document.getElementById('btnNuevaTarea');
+  const btnBack = document.getElementById('btnBack');
+  const btnLogout = document.getElementById('btnLogout');
+  const btnPerfil = document.getElementById('btnPerfil');
+  const modal = document.getElementById('modal-task');
+  const btnCerrar = document.getElementById('cerrarModal');
+  const form = document.getElementById('formTarea');
+  const btnEliminar = document.getElementById('btnEliminar');
 
-// ======= Navegación =======
-btnBack.onclick = () => window.location.href = 'projects.html';
-btnLogout.onclick = () => auth.signOut();
-btnPerfil.onclick = mostrarPerfilUsuario;
+  btnBack.onclick = () => window.location.href = 'projects.html';
+  btnLogout.onclick = () => auth.signOut();
+  btnPerfil.onclick = mostrarPerfilUsuario;
 
-// ======= Abrir/Cerrar modal =======
-btnNueva.onclick = abrirModalNueva;
-btnCerrar.onclick = cerrarModal;
-window.onclick = e => { if (e.target === modal) cerrarModal(); };
-window.onkeydown = e => { if (e.key === 'Escape') cerrarModal(); };
+  btnNueva.onclick = abrirModalNueva;
+  btnCerrar.onclick = cerrarModal;
+  window.onclick = e => { if (e.target === modal) cerrarModal(); };
+  window.onkeydown = e => { if (e.key === 'Escape') cerrarModal(); };
 
-// ======= Drag & Drop =======
-['todo', 'inprogress', 'paused', 'done'].forEach(id => {
-  new Sortable(document.querySelector(`#${id} .tareas`), {
-    group: 'kanban',
-    animation: 150,
-    onEnd: evt => {
-      const docId = evt.item.dataset.id;
-      const newStatus = idColumnaAEstado(evt.to.id);
-      db.collection('projects').doc(projectId)
-        .collection('tasks').doc(docId)
-        .update({ status: newStatus });
-    }
+  // ======= Drag & Drop =======
+  ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
+    new Sortable(document.querySelector(`#${id} .tareas`), {
+      group: 'kanban',
+      animation: 150,
+      onEnd: evt => {
+        const docId = evt.item.dataset.id;
+        const newStatus = idColumnaAEstado(evt.to.id);
+        db.collection('projects').doc(projectId)
+          .collection('tasks').doc(docId)
+          .update({ status: newStatus });
+      }
+    });
   });
-});
 
-// ======= Guardar/actualizar tarea =======
-form.onsubmit = e => {
-  e.preventDefault();
-  const id = form.tareaId.value || db.collection('projects').doc(projectId).collection('tasks').doc().id;
+  // ======= Guardar/actualizar tarea =======
+  form.onsubmit = e => {
+    e.preventDefault();
+    const id = form.tareaId.value || db.collection('projects').doc(projectId).collection('tasks').doc().id;
 
-  const data = {
-    title: form.titulo.value,
-    description: form.descripcion.value,
-    links: form.links.value.split(',').map(u => u.trim()).filter(u => u),
-    priority: form.prioridad.value,
-    dueDate: form.fecha.value
-      ? firebase.firestore.Timestamp.fromDate(new Date(form.fecha.value))
-      : null,
-    status: form.estado.value,
-    assignedTo: form.asignadoA.value || null,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    const data = {
+      title: form.titulo.value,
+      description: form.descripcion.value,
+      links: form.links.value.split(',').map(u => u.trim()).filter(u => u),
+      priority: form.prioridad.value,
+      dueDate: form.fecha.value
+        ? firebase.firestore.Timestamp.fromDate(new Date(form.fecha.value))
+        : null,
+      status: form.estado.value,
+      assignedTo: form.asignadoA.value || null,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (!form.tareaId.value) {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    db.collection('projects').doc(projectId)
+      .collection('tasks').doc(id)
+      .set(data, { merge: true });
+
+    cerrarModal();
   };
 
-  if (!form.tareaId.value) {
-    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-  }
+  // ======= Eliminar tarea =======
+  btnEliminar.onclick = () => {
+    const id = form.tareaId.value;
+    if (!id) return;
 
-  db.collection('projects').doc(projectId)
-    .collection('tasks').doc(id)
-    .set(data, { merge: true });
-
-  cerrarModal();
-};
-
-// ======= Eliminar tarea =======
-btnEliminar.onclick = () => {
-  const id = form.tareaId.value;
-  if (!id) return;
-
-  Swal.fire({
-    title: '¿Eliminar tarea?',
-    text: 'Esta acción no puede deshacerse.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar'
-  }).then(result => {
-    if (result.isConfirmed) {
-      db.collection('projects').doc(projectId).collection('tasks').doc(id).delete();
-      cerrarModal();
-      Toastify({
-        text: "✅ Tarea eliminada",
-        style: { background: "#EF4444" }
-      }).showToast();
-    }
-  });
-};
+    Swal.fire({
+      title: '¿Eliminar tarea?',
+      text: 'Esta acción no puede deshacerse.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then(result => {
+      if (result.isConfirmed) {
+        db.collection('projects').doc(projectId).collection('tasks').doc(id).delete();
+        cerrarModal();
+        Toastify({
+          text: "✅ Tarea eliminada",
+          style: { background: "#EF4444" }
+        }).showToast();
+      }
+    });
+  };
+});
 
 // ======= Cargar tareas en tiempo real =======
 function cargarTareasRealtime() {
