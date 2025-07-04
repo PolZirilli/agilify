@@ -62,10 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
       animation: 150,
       onEnd: evt => {
         const docId = evt.item.dataset.id;
-        const newStatus = idColumnaAEstado(evt.to.id);
+        const newStatus = idColumnaAEstado(evt.to.parentElement.id);
         db.collection('projects').doc(projectId)
           .collection('tasks').doc(docId)
           .update({ status: newStatus });
+        // No manipular el DOM aquí para evitar duplicados
       }
     });
   });
@@ -279,8 +280,8 @@ function mostrarPerfilUsuario() {
 
     const contenido = document.getElementById('perfilContenido');
     contenido.innerHTML = `
+      <p><strong>Nombre:</strong> ${user.displayName || '—'}</p>
       <p><strong>Email:</strong> ${user.email}</p>
-      <p><strong>UID:</strong> ${user.uid}</p>
       <div><strong>Proyectos asignados:</strong></div>
       <ul id="listaProyectos" class="list-disc list-inside text-sm mt-1"><li class="text-gray-500">Cargando…</li></ul>
     `;
