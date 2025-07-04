@@ -38,6 +38,7 @@ auth.onAuthStateChanged(user => {
 const btnNueva = document.getElementById('btnNuevaTarea');
 const btnBack = document.getElementById('btnBack');
 const btnLogout = document.getElementById('btnLogout');
+const btnPerfil = document.getElementById('btnPerfil');
 const modal = document.getElementById('modal-task');
 const btnCerrar = document.getElementById('cerrarModal');
 const form = document.getElementById('formTarea');
@@ -46,6 +47,7 @@ const btnEliminar = document.getElementById('btnEliminar');
 // ======= Navegación =======
 btnBack.onclick = () => window.location.href = 'projects.html';
 btnLogout.onclick = () => auth.signOut();
+btnPerfil.onclick = mostrarPerfilUsuario;
 
 // ======= Abrir/Cerrar modal =======
 btnNueva.onclick = abrirModalNueva;
@@ -55,7 +57,7 @@ window.onkeydown = e => { if (e.key === 'Escape') cerrarModal(); };
 
 // ======= Drag & Drop =======
 ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
-  new Sortable(document.getElementById(id), {
+  new Sortable(document.querySelector(`#${id} .tareas`), {
     group: 'kanban',
     animation: 150,
     onEnd: evt => {
@@ -136,7 +138,7 @@ function cargarTareasRealtime() {
 // ======= Skeleton =======
 function mostrarSkeleton() {
   ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
-    const container = document.getElementById(id);
+    const container = document.querySelector(`#${id} .tareas`);
     container.innerHTML = '';
     for (let i = 0; i < 3; i++) {
       const skel = document.createElement('div');
@@ -148,7 +150,7 @@ function mostrarSkeleton() {
 
 function ocultarSkeleton() {
   ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
-    document.getElementById(id).innerHTML = '';
+    document.querySelector(`#${id} .tareas`).innerHTML = '';
   });
 }
 
@@ -156,7 +158,7 @@ function ocultarSkeleton() {
 async function renderTareas(tareas) {
   ocultarSkeleton();
   for (const id of ['todo', 'inprogress', 'paused', 'done']) {
-    document.getElementById(id).innerHTML = '';
+    document.querySelector(`#${id} .tareas`).innerHTML = '';
   }
 
   for (const t of tareas) {
@@ -182,8 +184,8 @@ async function renderTareas(tareas) {
       <div class="text-xs text-gray-600">${assignedName}</div>
     `;
 
+    document.querySelector(`#${idColumnaAId(t.status)} .tareas`).appendChild(card);
     card.onclick = () => abrirModalEditarTarea(t);
-    document.getElementById(idColumnaAId(t.status)).appendChild(card);
   }
 }
 
@@ -261,4 +263,37 @@ function cargarNombreProyecto() {
       console.error(err);
       document.getElementById('projectName').textContent = "Error al cargar proyecto";
     });
+}
+
+// ======= Mostrar perfil usuario =======
+function mostrarPerfilUsuario() {
+  auth.onAuthStateChanged(user => {
+    if (!user) return;
+    Swal.fire({
+      title: `Perfil de ${user.displayName || user.email}`,
+      html: `
+        <p><strong>Email:</strong> ${user.email}</p>
+        <p><strong>UID:</strong> ${user.uid}</p>
+        <hr>
+        <p><strong>Proyectos asignados:</strong></p>
+        <ul id="listaProyectos">Cargando…</ul>
+      `,
+      showCloseButton: true,
+      showConfirmButton: false
+    });
+
+    db.collection('projects')
+      .where(`members.${user.uid}`, '==', true)
+      .get()
+      .then(snap => {
+        const lista = document.querySelector('#listaProyectos');
+        lista.innerHTML = '';
+        snap.forEach(doc => {
+          const li = document.createElement('li');
+          li.textContent = doc.data().name;
+          lista.appendChild(li);
+        });
+        if (lista.innerHTML === '') lista.innerHTML = '<li>Ninguno</li>';
+      });
+  });
 }
