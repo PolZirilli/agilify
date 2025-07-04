@@ -27,16 +27,18 @@ if (!projectId) {
 async function cargarMiembrosProyecto() {
   const select = document.getElementById('asignadoA');
   if (!select) return;
+
   select.innerHTML = '<option value="">-- No asignado --</option>';
 
-  const membres = await db.collection('projects').doc(projectId).collection('members').get();
-  membres.forEach(mdoc => {
-    const m = mdoc.data();
-    if (!m.displayName) return;
-    const opt = document.createElement('option');
-    opt.value = mdoc.id;
-    opt.textContent = m.displayName;
-    select.appendChild(opt);
+  const miembrosRef = db.collection('projects').doc(projectId).collection('members');
+  const snapshot = await miembrosRef.get();
+
+  snapshot.forEach(doc => {
+    const miembro = doc.data();
+    const option = document.createElement('option');
+    option.value = doc.id;
+    option.textContent = miembro.displayName || miembro.email || doc.id;
+    select.appendChild(option);
   });
 }
 
