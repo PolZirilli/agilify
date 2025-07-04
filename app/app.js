@@ -30,7 +30,7 @@ auth.onAuthStateChanged(user => {
   } else {
     cargarMiembrosProyecto();
     cargarTareasRealtime();
-    cargarNombreProyecto(); // Agregado para cargar nombre del proyecto
+    cargarNombreProyecto();
   }
 });
 
@@ -44,20 +44,16 @@ const form = document.getElementById('formTarea');
 const btnEliminar = document.getElementById('btnEliminar');
 
 // ======= Navegación =======
-btnBack.addEventListener('click', () => {
-  window.location.href = 'projects.html';
-});
+btnBack.onclick = () => window.location.href = 'projects.html';
+btnLogout.onclick = () => auth.signOut();
 
-// ======= Logout =======
-btnLogout.addEventListener('click', () => auth.signOut());
+// ======= Abrir/Cerrar modal =======
+btnNueva.onclick = abrirModalNueva;
+btnCerrar.onclick = cerrarModal;
+window.onclick = e => { if (e.target === modal) cerrarModal(); };
+window.onkeydown = e => { if (e.key === 'Escape') cerrarModal(); };
 
-// ======= Abrir/Cerrar modal nueva tarea =======
-btnNueva.addEventListener('click', abrirModalNueva);
-btnCerrar.addEventListener('click', cerrarModal);
-window.addEventListener('click', e => { if (e.target === modal) cerrarModal(); });
-window.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
-
-// ======= Drag & Drop con SortableJS =======
+// ======= Drag & Drop =======
 ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
   new Sortable(document.getElementById(id), {
     group: 'kanban',
@@ -72,11 +68,10 @@ window.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal();
   });
 });
 
-// ======= Guardar / actualizar tarea =======
-form.addEventListener('submit', e => {
+// ======= Guardar/actualizar tarea =======
+form.onsubmit = e => {
   e.preventDefault();
-  const id = form.tareaId.value ||
-    db.collection('projects').doc(projectId).collection('tasks').doc().id;
+  const id = form.tareaId.value || db.collection('projects').doc(projectId).collection('tasks').doc().id;
 
   const data = {
     title: form.titulo.value,
@@ -97,12 +92,13 @@ form.addEventListener('submit', e => {
     .set(data, { merge: true });
 
   cerrarModal();
-});
+};
 
 // ======= Eliminar tarea =======
-btnEliminar.addEventListener('click', () => {
-  const id = document.getElementById('tareaId').value;
+btnEliminar.onclick = () => {
+  const id = form.tareaId.value;
   if (!id) return;
+
   Swal.fire({
     title: '¿Eliminar tarea?',
     text: 'Esta acción no puede deshacerse.',
@@ -112,8 +108,7 @@ btnEliminar.addEventListener('click', () => {
     cancelButtonText: 'Cancelar'
   }).then(result => {
     if (result.isConfirmed) {
-      db.collection('projects').doc(projectId)
-        .collection('tasks').doc(id).delete();
+      db.collection('projects').doc(projectId).collection('tasks').doc(id).delete();
       cerrarModal();
       Toastify({
         text: "✅ Tarea eliminada",
@@ -121,26 +116,57 @@ btnEliminar.addEventListener('click', () => {
       }).showToast();
     }
   });
-});
+};
 
 // ======= Cargar tareas en tiempo real =======
 function cargarTareasRealtime() {
+  mostrarSkeleton();
   db.collection('projects').doc(projectId)
     .collection('tasks')
     .onSnapshot(snap => {
-      renderTareas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const tareas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderTareas(tareas);
+      ocultarSkeleton();
     });
 }
 
-// ======= Renderizar tarjetas Kanban =======
-function renderTareas(tareas) {
+// ======= Skeleton =======
+function mostrarSkeleton() {
+  ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
+    const container = document.getElementById(id);
+    container.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const skel = document.createElement('div');
+      skel.className = 'bg-gray-200 rounded p-2 mb-2 animate-pulse h-12';
+      container.appendChild(skel);
+    }
+  });
+}
+
+function ocultarSkeleton() {
   ['todo', 'inprogress', 'paused', 'done'].forEach(id => {
     document.getElementById(id).innerHTML = '';
   });
-  tareas.forEach(t => {
+}
+
+// ======= Renderizar tarjetas Kanban =======
+async function renderTareas(tareas) {
+  ocultarSkeleton();
+  for (const id of ['todo', 'inprogress', 'paused', 'done']) {
+    document.getElementById(id).innerHTML = '';
+  }
+
+  for (const t of tareas) {
     const card = document.createElement('div');
     card.className = 'bg-gray-200 rounded p-2 mb-2 shadow cursor-pointer';
     card.dataset.id = t.id;
+
+    let assignedName = '';
+    if (t.assignedTo) {
+      const doc = await db.collection('projects').doc(projectId).collection('members').doc(t.assignedTo).get();
+      if (doc.exists) assignedName = doc.data().displayName || '';
+    }
+
     card.innerHTML = `
       <div class="flex justify-between items-center mb-1">
         <div class="font-semibold truncate">${t.title}</div>
@@ -150,11 +176,12 @@ function renderTareas(tareas) {
           ${t.priority}
         </div>
       </div>
-      <div class="text-xs text-gray-600">${t.assignedToName || ''}</div>
+      <div class="text-xs text-gray-600">${assignedName}</div>
     `;
-    card.addEventListener('click', () => abrirModalEditarTarea(t));
+
+    card.onclick = () => abrirModalEditarTarea(t);
     document.getElementById(idColumnaAId(t.status)).appendChild(card);
-  });
+  }
 }
 
 // ======= Modal handlers =======
@@ -184,32 +211,32 @@ function cerrarModal() {
   modal.classList.add('hidden');
 }
 
-// ======= Mapeo estado <-> columna =======
+// ======= Helpers =======
 function idColumnaAId(status) {
-  if (status === 'a-realizar') return 'todo';
-  if (status === 'en-proceso') return 'inprogress';
-  if (status === 'pausado') return 'paused';
-  return 'done';
+  return {
+    'a-realizar': 'todo',
+    'en-proceso': 'inprogress',
+    'pausado': 'paused',
+    'realizado': 'done'
+  }[status];
 }
 
 function idColumnaAEstado(id) {
-  if (id === 'todo') return 'a-realizar';
-  if (id === 'inprogress') return 'en-proceso';
-  if (id === 'paused') return 'pausado';
-  return 'realizado';
+  return {
+    'todo': 'a-realizar',
+    'inprogress': 'en-proceso',
+    'paused': 'pausado',
+    'done': 'realizado'
+  }[id];
 }
 
-// ======= Cargar miembros proyecto =======
+// ======= Cargar miembros =======
 async function cargarMiembrosProyecto() {
   const select = document.getElementById('asignadoA');
   select.innerHTML = '<option value="">-- No asignado --</option>';
 
-  const membres = await db.collection('projects')
-    .doc(projectId)
-    .collection('members')
-    .get();
-
-  membres.docs.forEach(mdoc => {
+  const membres = await db.collection('projects').doc(projectId).collection('members').get();
+  membres.forEach(mdoc => {
     const m = mdoc.data();
     if (!m.displayName) return;
     const opt = document.createElement('option');
